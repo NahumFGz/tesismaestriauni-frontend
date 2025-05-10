@@ -1,12 +1,23 @@
-import { Listbox, ListboxItem, ListboxSection } from '@heroui/react'
-import { Button } from '@heroui/react'
+'use client'
 
-import { ScrollShadow } from '@heroui/react'
+import { useQuery } from '@tanstack/react-query'
+import { Listbox, ListboxItem, ListboxSection, ScrollShadow, Button } from '@heroui/react'
 import { Icon } from '@iconify/react/dist/iconify.js'
 import { SidebarRecentChatOptions } from './chat-options'
 import { AvatarDropdown } from './avatar-dropdown'
+import { getChats } from '../../../services/chat'
+import Loading from '../../../components/ui/Loading'
 
 export default function SidebarBody() {
+  const {
+    data: chats,
+    isLoading,
+    isError
+  } = useQuery({
+    queryKey: ['chats', 1, 1, 10],
+    queryFn: () => getChats({ user_id: 1, page: 1, take: 10 })
+  })
+
   return (
     <>
       <AvatarDropdown />
@@ -30,62 +41,33 @@ export default function SidebarBody() {
             }}
             title='Recent'
           >
-            <ListboxItem
-              key='financial-planning'
-              className='group h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Financial Planning
-            </ListboxItem>
-            <ListboxItem
-              key='email-template'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Email template
-            </ListboxItem>
-            <ListboxItem
-              key='react-19-example'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              React 19 examples
-            </ListboxItem>
-            <ListboxItem
-              key='custom-support-message'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Custom support message
-            </ListboxItem>
-            <ListboxItem
-              key='resignation-letter'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Resignation Letter
-            </ListboxItem>
-            <ListboxItem
-              key='design-test-review'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Design test review
-            </ListboxItem>
-            <ListboxItem
-              key='design-system-modules'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              Design systems modules
-            </ListboxItem>
-            <ListboxItem
-              key='how-a-taximeter-works'
-              className='h-[44px] px-[12px] py-[10px] text-default-500'
-              endContent={<SidebarRecentChatOptions />}
-            >
-              How a taximeter works
-            </ListboxItem>
+            {isLoading ? (
+              <ListboxItem key='loading' className='text-default-400' textValue='Cargando...'>
+                <Loading />
+              </ListboxItem>
+            ) : isError ? (
+              <ListboxItem key='error' className='text-danger'>
+                Error al cargar chats
+              </ListboxItem>
+            ) : chats && chats.length > 0 ? (
+              <>
+                {chats.map((chat) => (
+                  <ListboxItem
+                    key={chat.chat_uuid}
+                    onPress={() => console.log(chat.chat_uuid)}
+                    className='group h-[44px] px-[12px] py-[10px] text-default-500'
+                    endContent={<SidebarRecentChatOptions />}
+                  >
+                    {chat.title || 'Sin título'}
+                  </ListboxItem>
+                ))}
+              </>
+            ) : (
+              <ListboxItem key='no-chats' className='text-default-400'>
+                No hay chats recientes
+              </ListboxItem>
+            )}
+
             <ListboxItem
               key='show-more'
               className='h-[44px] px-[12px] py-[10px] text-default-400'

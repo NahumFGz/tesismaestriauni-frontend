@@ -20,7 +20,7 @@ import SidebarHeader from './sidebar-header'
  * ```
  */
 
-export default function Component({
+export function SidebarContainer({
   children,
   header,
   title,

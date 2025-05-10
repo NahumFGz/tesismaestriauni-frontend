@@ -8,7 +8,7 @@ import { cn } from '@heroui/react'
 
 import PromptInput from './prompt-input'
 
-export default function Component(
+export function PromptInputWithEnclosedActions(
   props: TextAreaProps & { classNames?: Record<'button' | 'buttonIcon', string> }
 ) {
   const [prompt, setPrompt] = React.useState<string>('')

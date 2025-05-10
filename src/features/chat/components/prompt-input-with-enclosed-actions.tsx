@@ -1,20 +1,30 @@
-'use client'
 import type { TextAreaProps } from '@heroui/react'
 
-import React from 'react'
 import { Button, Tooltip } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { cn } from '@heroui/react'
 
 import PromptInput from './prompt-input'
 
-export function PromptInputWithEnclosedActions(
-  props: TextAreaProps & { classNames?: Record<'button' | 'buttonIcon', string> }
-) {
-  const [prompt, setPrompt] = React.useState<string>('')
+export interface PromptInputWithEnclosedActionsProps extends TextAreaProps {
+  classNames?: Record<'button' | 'buttonIcon' | 'innerWrapper' | 'input', string>
+  prompt: string
+  onPromptChange: (value: string) => void
+  onSendPrompt: () => void
+  onAddFile?: () => void
+  disabled?: boolean
+}
 
+export function PromptInputWithEnclosedActions({
+  prompt,
+  onPromptChange,
+  onSendPrompt,
+  onAddFile = () => console.log('add file'),
+  disabled = false,
+  ...props
+}: PromptInputWithEnclosedActionsProps) {
   return (
-    <form className='flex w-full items-start gap-2'>
+    <div className='flex w-full items-start gap-2'>
       <PromptInput
         {...props}
         classNames={{
@@ -38,9 +48,10 @@ export function PromptInputWithEnclosedActions(
                 isIconOnly
                 className={props?.classNames?.button || ''}
                 color={!prompt ? 'default' : 'primary'}
-                isDisabled={!prompt}
+                isDisabled={!prompt || disabled}
                 radius='full'
                 variant={!prompt ? 'flat' : 'solid'}
+                onPress={onSendPrompt}
               >
                 <Icon
                   className={cn(
@@ -57,14 +68,21 @@ export function PromptInputWithEnclosedActions(
         }
         startContent={
           <Tooltip showArrow content='Add file'>
-            <Button isIconOnly className='p-[10px]' radius='full' variant='light'>
+            <Button
+              isIconOnly
+              className='p-[10px]'
+              radius='full'
+              variant='light'
+              onPress={onAddFile}
+              isDisabled={disabled}
+            >
               <Icon className='text-default-500' icon='solar:paperclip-linear' width={20} />
             </Button>
           </Tooltip>
         }
         value={prompt}
-        onValueChange={setPrompt}
+        onValueChange={onPromptChange}
       />
-    </form>
+    </div>
   )
 }

@@ -1,0 +1,50 @@
+import { io, Socket } from 'socket.io-client'
+
+// Creamos una única instancia del socket para toda la aplicación
+let socket: Socket | null = null
+
+// Interfaz para el mensaje a enviar
+export interface GenerateMessageDTO {
+  content: string
+  chat_uuid: string
+}
+
+// Interfaz para la respuesta del servidor
+export interface GeneratedResponse {
+  id: number
+  sender_type: 'SYSTEM' | 'USER'
+  content: string
+  chat_uuid: string
+}
+
+// Interfaz para los eventos que recibimos del servidor
+export interface ServerToClientEvents {
+  generated: (data: GeneratedResponse) => void
+  'stream.token': (token: string | { content: string }) => void
+  'stream.end': () => void
+  'stream.error': (error: string) => void
+}
+
+// Interfaz para los eventos que enviamos al servidor
+export interface ClientToServerEvents {
+  generate: (
+    dto: GenerateMessageDTO,
+    callback: (ack: { success: boolean; message?: string }) => void
+  ) => void
+}
+
+// Función para obtener la instancia del socket, creándola si no existe
+export const getSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
+  if (!socket) {
+    socket = io('http://localhost:3000/messages')
+  }
+  return socket
+}
+
+// Función para desconectar el socket
+export const disconnectSocket = (): void => {
+  if (socket) {
+    socket.disconnect()
+    socket = null
+  }
+}

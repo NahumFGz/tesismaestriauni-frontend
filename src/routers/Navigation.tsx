@@ -19,7 +19,7 @@ export function Navigation() {
 
         <Route element={<ProtectedRoutes />}>
           <Route element={<ChatLayout />}>
-            <Route path='chat/conversation' element={<ChatPage />} />
+            <Route path='chat/conversation/:chat_uuid?' element={<ChatPage />} />
           </Route>
         </Route>
       </Routes>

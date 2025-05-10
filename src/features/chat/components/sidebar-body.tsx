@@ -1,22 +1,49 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Listbox, ListboxItem, ListboxSection, ScrollShadow, Button } from '@heroui/react'
+import { Listbox, ListboxItem, ListboxSection, ScrollShadow, Button, Spinner } from '@heroui/react'
 import { Icon } from '@iconify/react/dist/iconify.js'
 import { SidebarRecentChatOptions } from './chat-options'
 import { AvatarDropdown } from './avatar-dropdown'
-import { getChats } from '../../../services/chat'
-import Loading from '../../../components/ui/Loading'
+import { Loading } from '../../../components/ui/Loading'
+import { getChats, type ChatType } from '../../../services/chat'
+import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 export default function SidebarBody() {
+  const navigate = useNavigate()
+  const [pagination, setPagination] = useState({ page: 1, take: 10 })
+  const [accumulatedChats, setAccumulatedChats] = useState<ChatType[]>([])
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const {
     data: chats,
     isLoading,
     isError
   } = useQuery({
-    queryKey: ['chats', 1, 1, 10],
-    queryFn: () => getChats({ user_id: 1, page: 1, take: 10 })
+    queryKey: ['chats', pagination.page, pagination.take],
+    queryFn: () => getChats({ page: pagination.page, take: pagination.take }),
+    retry: 2
   })
+
+  useEffect(() => {
+    //TODO: Revisar cuando se haya implementado la metadata de la paginación
+    if (chats && !isLoading) {
+      setAccumulatedChats((prevChats) => {
+        const existingIds = new Set(prevChats.map((chat) => chat.chat_uuid))
+        const newChats = chats.filter((chat) => !existingIds.has(chat.chat_uuid))
+        return [...prevChats, ...newChats]
+      })
+      setLoadingMore(false)
+    }
+  }, [chats, isLoading])
+
+  const handleLoadMore = () => {
+    setLoadingMore(true)
+    setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
+    // No es necesario llamar a refetch() ya que el cambio en pagination.page
+    // provocará que React Query realice automáticamente una nueva solicitud
+  }
 
   return (
     <>
@@ -25,6 +52,7 @@ export default function SidebarBody() {
       <ScrollShadow className='-mr-6 h-full max-h-full pr-6'>
         <Button
           fullWidth
+          onPress={() => navigate('/chat/conversation')}
           className='mb-6 mt-2 h-[44px] justify-start gap-3 bg-default-foreground px-3 py-[10px] text-default-50'
           startContent={
             <Icon className='text-default-50' icon='solar:chat-round-dots-linear' width={24} />
@@ -41,7 +69,7 @@ export default function SidebarBody() {
             }}
             title='Recent'
           >
-            {isLoading ? (
+            {isLoading && accumulatedChats.length === 0 ? (
               <ListboxItem key='loading' className='text-default-400' textValue='Cargando...'>
                 <Loading />
               </ListboxItem>
@@ -49,12 +77,12 @@ export default function SidebarBody() {
               <ListboxItem key='error' className='text-danger'>
                 Error al cargar chats
               </ListboxItem>
-            ) : chats && chats.length > 0 ? (
+            ) : accumulatedChats.length > 0 ? (
               <>
-                {chats.map((chat) => (
+                {accumulatedChats.map((chat) => (
                   <ListboxItem
                     key={chat.chat_uuid}
-                    onPress={() => console.log(chat.chat_uuid)}
+                    onPress={() => navigate(`/chat/conversation/${chat.chat_uuid}`)}
                     className='group h-[44px] px-[12px] py-[10px] text-default-500'
                     endContent={<SidebarRecentChatOptions />}
                   >
@@ -71,11 +99,20 @@ export default function SidebarBody() {
             <ListboxItem
               key='show-more'
               className='h-[44px] px-[12px] py-[10px] text-default-400'
+              onPress={handleLoadMore}
               endContent={
-                <Icon className='text-default-300' icon='solar:alt-arrow-down-linear' width={20} />
+                loadingMore ? (
+                  <Spinner size='sm' />
+                ) : (
+                  <Icon
+                    className='text-default-300'
+                    icon='solar:alt-arrow-down-linear'
+                    width={20}
+                  />
+                )
               }
             >
-              Show more
+              Mostrar más
             </ListboxItem>
           </ListboxSection>
         </Listbox>

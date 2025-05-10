@@ -1,25 +1,41 @@
 import { isAxiosError } from 'axios'
 import api from './config/axios'
 
-type Chat = {
-  id: number
-  title: string
-  chat_uuid: string
-  updated_at: string
-}
+import { z } from 'zod'
+import { useAuthStore } from '../store/authStore'
 
-type GetChatsPayload = {
-  user_id: number
+export const ChatSchema = z.object({
+  id: z.number(),
+  title: z.string().nullable(),
+  chat_uuid: z.string(),
+  updated_at: z.string()
+})
+
+export const ChatListSchema = z.array(ChatSchema)
+
+export type ChatType = z.infer<typeof ChatSchema>
+
+export const getChats = async ({
+  page,
+  take
+}: {
   page: number
   take: number
-}
-
-export const getChats = async (payload: GetChatsPayload): Promise<Chat[]> => {
+}): Promise<ChatType[]> => {
+  //TODO: Eliminar el delay
+  //TODO: Revisar el backend para traer metadata de los elementos
   try {
-    //Simular un delay de 2 segundos
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const response = await api.post<Chat[]>('/messages/chats', payload)
-    return response.data
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    const user_id = useAuthStore.getState().profile!.id
+
+    const response = await api.get<ChatType[]>(`/messages/${user_id}`, {
+      params: { page, take }
+    })
+
+    const parsed = ChatListSchema.parse(response.data)
+
+    return parsed
   } catch (error) {
     if (isAxiosError(error) && error.response) {
       throw new Error(error.response.data.error || 'Error al obtener chats')

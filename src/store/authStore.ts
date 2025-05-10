@@ -21,7 +21,7 @@ interface AuthStore {
   setAuth: (data: {
     token: string
     refreshToken: string
-    profile?: UserProfile
+    profile: UserProfile
     rememberMe: boolean
   }) => void
   setProfile: (profile: UserProfile) => void

@@ -6,7 +6,8 @@ const messagingChatAIConversations: MessagingChatMessageProps[] = [
       'https://nextuipro.nyc3.cdn.digitaloceanspaces.com/components-images/avatars/3a906b3de8eaa53e14582edf5c918b5d.jpg',
     message:
       'I’m writing an out-of-office message and need your help. Here’s what I want to say: I’m out from 2024-5-24 to 2024-5-29, contact my colleague for questions, and I will check email when I’m back.',
-    name: 'You'
+    name: 'You',
+    isRTL: false
   },
   {
     avatar: 'https://nextuipro.nyc3.cdn.digitaloceanspaces.com/components-images/avatar_ai.png',
@@ -19,7 +20,8 @@ const messagingChatAIConversations: MessagingChatMessageProps[] = [
     avatar:
       'https://nextuipro.nyc3.cdn.digitaloceanspaces.com/components-images/avatars/3a906b3de8eaa53e14582edf5c918b5d.jpg',
     message: 'Thank you!',
-    name: 'You'
+    name: 'You',
+    isRTL: false
   }
 ]
 

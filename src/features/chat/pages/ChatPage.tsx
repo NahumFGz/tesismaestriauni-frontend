@@ -6,8 +6,12 @@ import { SidebarContainerHeader } from '../components/sidebar-container-header'
 
 import MessagingChatMessage from '../components/messaging-chat-message'
 import messagingChatAIConversations from '../components/messaging-chat-ai-conversations'
+import { useParams } from 'react-router-dom'
+import { NewChat } from '../components/new-chat'
 
 export function ChatPage() {
+  const { chat_uuid } = useParams()
+
   return (
     <div className='h-dvh w-full max-w-full'>
       <SidebarContainer
@@ -17,15 +21,19 @@ export function ChatPage() {
       >
         <div className='relative flex h-full flex-col'>
           <ScrollShadow className='flex h-full max-h-[60vh] flex-col gap-6 overflow-y-auto p-6 pb-8 '>
-            {messagingChatAIConversations.map((messagingChatAIConversation, idx) => (
-              <MessagingChatMessage
-                key={idx}
-                classNames={{
-                  base: 'bg-default-50'
-                }}
-                {...messagingChatAIConversation}
-              />
-            ))}
+            {chat_uuid ? (
+              messagingChatAIConversations.map((messagingChatAIConversation, idx) => (
+                <MessagingChatMessage
+                  key={idx}
+                  classNames={{
+                    base: 'bg-default-50'
+                  }}
+                  {...messagingChatAIConversation}
+                />
+              ))
+            ) : (
+              <NewChat />
+            )}
           </ScrollShadow>
           <div className='mt-auto flex max-w-full flex-col gap-2 px-6'>
             <PromptInputWithEnclosedActions

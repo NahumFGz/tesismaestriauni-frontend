@@ -23,7 +23,8 @@ export default function SidebarBody() {
   } = useQuery({
     queryKey: ['chats', pagination.page, pagination.take],
     queryFn: () => getChats({ page: pagination.page, take: pagination.take }),
-    retry: 2
+    retry: 2,
+    refetchOnWindowFocus: false
   })
 
   useEffect(() => {

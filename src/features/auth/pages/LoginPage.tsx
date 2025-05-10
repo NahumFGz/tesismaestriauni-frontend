@@ -3,10 +3,9 @@
 import React from 'react'
 import { Button, Input, Checkbox, Link, Divider, Form } from '@heroui/react'
 import { Icon } from '@iconify/react'
+import { AcmeIcon } from '../../../assets/acme'
 
-import { AcmeIcon } from '../assets/acme'
-
-export function Login() {
+export function LoginPage() {
   const [isVisible, setIsVisible] = React.useState(false)
 
   const toggleVisibility = () => setIsVisible(!isVisible)
@@ -57,10 +56,10 @@ export function Login() {
             variant='bordered'
           />
           <div className='flex w-full items-center justify-between px-1 py-2'>
-            <Checkbox name='remember' size='sm'>
+            <Checkbox name='remember' size='sm' isDisabled>
               Remember me
             </Checkbox>
-            <Link className='text-default-500' href='#' size='sm'>
+            <Link className='text-default-500' href='#' size='sm' isDisabled>
               Forgot password?
             </Link>
           </div>
@@ -77,19 +76,21 @@ export function Login() {
           <Button
             startContent={<Icon icon='flat-color-icons:google' width={24} />}
             variant='bordered'
+            isDisabled
           >
             Continue with Google
           </Button>
           <Button
             startContent={<Icon className='text-default-500' icon='fe:github' width={24} />}
             variant='bordered'
+            isDisabled
           >
             Continue with Github
           </Button>
         </div>
         <p className='text-center text-small'>
           Need to create an account?&nbsp;
-          <Link href='#' size='sm'>
+          <Link href='#' size='sm' isDisabled>
             Sign Up
           </Link>
         </p>

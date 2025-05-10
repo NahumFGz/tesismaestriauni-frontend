@@ -1,74 +1,97 @@
 import { create } from 'zustand'
-import * as localStorageService from '../services/storage/localStorage'
-import * as sessionStorageService from '../services/storage/sessionStorage'
+import { persist, createJSONStorage, devtools } from 'zustand/middleware'
 
-// Función para obtener los valores iniciales desde el almacenamiento
-const getInitialValues = () => {
-  const rememberMe =
-    localStorageService.getItem('rememberMe') ||
-    sessionStorageService.getItem('rememberMe') ||
-    false
-  const storageService = rememberMe ? localStorageService : sessionStorageService
-  const token = storageService.getItem('token') || sessionStorageService.getItem('token') || null
-  const isAuth =
-    storageService.getItem('isAuth') || sessionStorageService.getItem('isAuth') || false
-  const profile =
-    storageService.getItem('profile') || sessionStorageService.getItem('profile') || null
-
-  return {
-    token,
-    isAuth,
-    profile,
-    rememberMe
-  }
+export type AuthTokens = {
+  token: string
+  refreshToken: string
 }
 
-export const useAuthStore = create((set) => ({
-  ...getInitialValues(),
-
-  setToken: (token) => {
-    const storageService = useAuthStore.getState().rememberMe
-      ? localStorageService
-      : sessionStorageService
-    storageService.setItem('token', token)
-    storageService.setItem('isAuth', true)
-    set({ token, isAuth: true })
-  },
-
-  setProfile: (profile) => {
-    const storageService = useAuthStore.getState().rememberMe
-      ? localStorageService
-      : sessionStorageService
-    storageService.setItem('profile', profile)
-    set({ profile })
-  },
-
-  setRememberMe: (rememberMe) => {
-    const storageService = rememberMe ? localStorageService : sessionStorageService
-    storageService.setItem('rememberMe', rememberMe)
-    set({ rememberMe })
-  },
-
-  cleanStore: () => {
-    const storageService = useAuthStore.getState().rememberMe
-      ? localStorageService
-      : sessionStorageService
-    storageService.removeItem('token')
-    storageService.removeItem('isAuth')
-    storageService.removeItem('profile')
-    storageService.removeItem('rememberMe')
-    set({ token: null, isAuth: false, profile: null, rememberMe: false })
-  }
-}))
-
-export function useAuthStoreDispatch() {
-  const token = useAuthStore((store) => store.token)
-  const isAuth = useAuthStore((store) => store.isAuth)
-  const profile = useAuthStore((store) => store.profile)
-  const logout = useAuthStore((state) => state.cleanStore)
-  const setToken = useAuthStore((state) => state.setToken)
-  const setProfile = useAuthStore((state) => state.setProfile)
-  const setRememberMe = useAuthStore((state) => state.setRememberMe)
-
-  return { isAuth, token, profile, logout, setToken, setProfile, setRememberMe }
+export type UserProfile = {
+  id: number
+  name: string
+  email: string
 }
+
+interface AuthStore {
+  token: string | null
+  refreshToken: string | null
+  profile: UserProfile | null
+  isAuth: boolean
+  rememberMe: boolean
+  setAuth: (data: {
+    token: string
+    refreshToken: string
+    profile?: UserProfile
+    rememberMe: boolean
+  }) => void
+  setProfile: (profile: UserProfile) => void
+  logout: () => void
+}
+
+// Función auxiliar para gestionar el almacenamiento
+const getStorage = (rememberMe: boolean) => {
+  return createJSONStorage(() => (rememberMe ? localStorage : sessionStorage))
+}
+
+// Constante para el nombre del almacenamiento
+const STORAGE_KEY = 'auth-storage'
+
+export const useAuthStore = create<AuthStore>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        token: null,
+        refreshToken: null,
+        profile: null,
+        isAuth: false,
+        rememberMe: false,
+
+        setAuth: ({ token, refreshToken, profile, rememberMe }) => {
+          // 🔁 Cambiar almacenamiento dinámicamente
+          useAuthStore.persist.setOptions({
+            storage: getStorage(rememberMe)
+          })
+
+          set({
+            token,
+            refreshToken,
+            profile: profile || null,
+            isAuth: true,
+            rememberMe
+          })
+        },
+
+        setProfile: (profile) => {
+          set({ profile })
+        },
+
+        logout: () => {
+          if (get().rememberMe) {
+            localStorage.removeItem(STORAGE_KEY)
+          } else {
+            sessionStorage.removeItem(STORAGE_KEY)
+          }
+
+          set({
+            token: null,
+            refreshToken: null,
+            profile: null,
+            isAuth: false,
+            rememberMe: false
+          })
+        }
+      }),
+      {
+        name: STORAGE_KEY,
+        storage: getStorage(false), // valor por defecto usando sessionStorage
+        partialize: (state): Partial<AuthStore> => ({
+          token: state.token,
+          refreshToken: state.refreshToken,
+          profile: state.profile,
+          isAuth: state.isAuth,
+          rememberMe: state.rememberMe
+        })
+      }
+    )
+  )
+)

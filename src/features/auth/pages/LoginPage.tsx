@@ -6,6 +6,11 @@ import { Button, Input, Checkbox, Link, Divider } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { AcmeIcon } from '../../../assets/acme'
 import { ThemeSwitchButton } from '../../../components/ui/ThemeSwitchButton'
+import { useMutation } from '@tanstack/react-query'
+import { getProfile, login } from '../../../services/auth'
+import { useAuthStore, type UserProfile } from '../../../store/authStore'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
 type LoginFormData = {
   email: string
@@ -13,10 +18,18 @@ type LoginFormData = {
   remember: boolean
 }
 
+type LoginResponseType = {
+  token: string
+  refreshToken: string
+  profile: UserProfile
+  rememberMe: boolean
+}
+
 export function LoginPage() {
   const [isVisible, setIsVisible] = React.useState(false)
   const toggleVisibility = () => setIsVisible(!isVisible)
-
+  const setAuth = useAuthStore((state) => state.setAuth)
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -29,8 +42,31 @@ export function LoginPage() {
     }
   })
 
+  const mutation = useMutation<LoginResponseType, Error, LoginFormData>({
+    mutationFn: async (data: LoginFormData) => {
+      const tokensResponse = await login(data)
+      const profileData = await getProfile()
+
+      // Mapear los nombres de los tokens correctamente
+      return {
+        token: tokensResponse.accessToken,
+        refreshToken: tokensResponse.refreshToken,
+        profile: profileData,
+        rememberMe: data.remember
+      }
+    },
+    onSuccess: ({ token, refreshToken, profile, rememberMe }) => {
+      setAuth({ token, refreshToken, profile, rememberMe })
+      navigate('/chat/conversation', { replace: true })
+    },
+    onError: (error) => {
+      console.error('❌ Error de login:', error)
+      toast.error('Credenciales inválidas')
+    }
+  })
+
   const onSubmit = (data: LoginFormData) => {
-    console.log('🟢 Form values:', data)
+    mutation.mutate(data)
     console.log(errors)
   }
 

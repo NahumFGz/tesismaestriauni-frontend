@@ -5,7 +5,7 @@ import { PromptInputWithEnclosedActions } from '../components/prompt-input-with-
 import { SidebarContainerHeader } from '../components/sidebar-container-header'
 
 import MessagingChatMessage from '../components/messaging-chat-message'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { NewChat } from '../components/new-chat'
 import { getMessagesByUuid } from '../../../services/chat'
 import type { FormattedMessageType } from '../../../services/chat'
@@ -14,11 +14,44 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { getSocket, disconnectSocket } from '../../../services/config/socketio'
 import type { GeneratedResponse } from '../../../services/config/socketio'
 import { Spinner } from '@heroui/react'
+import { useQueryClient } from '@tanstack/react-query'
 
+/**
+ * ChatPage - Componente principal para la interfaz de chat
+ *
+ * Flujo de funcionamiento:
+ * 1. Cargar mensajes existentes si hay un UUID en la URL
+ * 2. Permitir enviar mensajes con o sin UUID (chat nuevo o existente)
+ * 3. Al enviar un mensaje sin UUID, se espera que el servidor devuelva un nuevo UUID
+ * 4. Cuando se recibe un nuevo UUID, se navega a la URL con ese UUID
+ * 5. Se muestran los mensajes en tiempo real con streaming mientras se generan
+ * 6. Se mantiene el scroll siempre en el último mensaje
+ *
+ * Características implementadas:
+ * - Carga de mensajes existentes para un chat específico
+ * - Envío de mensajes a través de websockets
+ * - Streaming de respuestas en tiempo real
+ * - Navegación automática a nuevo chat cuando se recibe un UUID nuevo
+ * - Indicador de carga mientras se espera respuesta
+ * - Manejo de cambio entre diferentes chats
+ * - Limpieza de mensajes al iniciar un nuevo chat
+ * - Actualización de la lista de chats al crear uno nuevo
+ *
+ * Estados principales:
+ * - localMessages: Mensajes del chat actual
+ * - streamingMessage: Mensaje que se está recibiendo en streaming
+ * - isSending: Indica si se está enviando/esperando respuesta
+ * - isChangingChat: Indica si se está cambiando entre chats
+ */
 export function ChatPage() {
   const { chat_uuid } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const queryClient = useQueryClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const previousChatUuidRef = useRef<string | null>(null)
+  const previousPathRef = useRef<string | null>(null)
+  const navigatingRef = useRef(false)
 
   // Estado para el prompt
   const [prompt, setPrompt] = useState<string>('')
@@ -30,6 +63,22 @@ export function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState<string>('')
   // Estado para rastrear si estamos cambiando de chat
   const [isChangingChat, setIsChangingChat] = useState(false)
+
+  // Limpiar mensajes cuando cambia la ruta
+  useEffect(() => {
+    const currentPath = location.pathname
+
+    // Si estamos en la ruta base de chat sin UUID, limpiar los mensajes
+    if (currentPath === '/chat/conversation' && previousPathRef.current !== currentPath) {
+      console.log('Navegando a New Chat, limpiando mensajes')
+      setLocalMessages([])
+      setStreamingMessage('')
+      setIsSending(false)
+    }
+
+    // Actualizar la referencia de la ruta anterior
+    previousPathRef.current = currentPath
+  }, [location.pathname])
 
   // Función para cargar mensajes
   const loadMessages = useCallback(async (uuid: string) => {
@@ -56,20 +105,41 @@ export function ChatPage() {
       console.log('Cambio de chat detectado:', previousChatUuidRef.current, '->', chat_uuid)
       previousChatUuidRef.current = chat_uuid
       setStreamingMessage('')
+
+      // Si estábamos navegando, reiniciamos el estado
+      if (navigatingRef.current) {
+        navigatingRef.current = false
+        setIsSending(false)
+      }
+
       loadMessages(chat_uuid)
     }
   }, [chat_uuid, loadMessages])
 
   // Configuración de Socket.IO
   useEffect(() => {
-    if (!chat_uuid) return
-
     const socket = getSocket()
 
     // Evento cuando se recibe un mensaje completo
     socket.on('generated', (data: GeneratedResponse) => {
-      if (data.chat_uuid === chat_uuid) {
-        console.log('Mensaje generado recibido:', data)
+      console.log('Mensaje generado recibido:', data)
+
+      // Si recibimos un nuevo UUID y no teníamos uno, navegamos a la nueva URL
+      if (data.chat_uuid && !chat_uuid) {
+        console.log('Nuevo chat creado, navegando a:', data.chat_uuid)
+        navigatingRef.current = true
+
+        // Navegar a la URL con el nuevo UUID
+        navigate(`/chat/conversation/${data.chat_uuid}`)
+
+        // Actualizar la lista de chats para que aparezca el nuevo chat
+        queryClient.invalidateQueries({ queryKey: ['chats'] })
+
+        return
+      }
+
+      // Si estamos en el chat correcto o es un nuevo chat
+      if (!chat_uuid || data.chat_uuid === chat_uuid) {
         // Limpiamos el mensaje en streaming ya que recibimos el mensaje completo
         setStreamingMessage('')
 
@@ -114,11 +184,11 @@ export function ChatPage() {
       socket.off('stream.end')
       socket.off('stream.error')
     }
-  }, [chat_uuid])
+  }, [chat_uuid, navigate, queryClient])
 
   // Función para manejar el envío del prompt
   const handleSendPrompt = () => {
-    if (!prompt.trim() || !chat_uuid || isSending) return
+    if (!prompt.trim() || isSending) return
 
     const socket = getSocket()
     setIsSending(true)
@@ -139,7 +209,7 @@ export function ChatPage() {
       'generate',
       {
         content: prompt,
-        chat_uuid
+        chat_uuid: chat_uuid || '' // Enviamos cadena vacía si no hay UUID
       },
       (ack) => {
         // Verificamos si el ack existe y tiene la estructura esperada
@@ -199,7 +269,7 @@ export function ChatPage() {
 
   // Componente para mostrar el spinner de carga mientras se espera respuesta
   const WaitingResponseSpinner = () => {
-    if (!isSending || streamingMessage) return null
+    if (!isSending || streamingMessage || navigatingRef.current) return null
 
     return (
       <div className='flex items-center gap-2 px-4 py-2 rounded-lg bg-default-100 mb-2'>
@@ -246,7 +316,26 @@ export function ChatPage() {
                 </div>
               )
             ) : (
-              <NewChat />
+              <>
+                <NewChat />
+                {displayMessages.length > 0 && (
+                  <div className='mt-4'>
+                    {displayMessages.map((message, idx) => (
+                      <MessagingChatMessage
+                        key={idx}
+                        classNames={{
+                          base: 'bg-default-50'
+                        }}
+                        {...message}
+                      />
+                    ))}
+                    {/* Spinner de espera de respuesta */}
+                    <WaitingResponseSpinner />
+                    {/* Elemento invisible para hacer scroll hasta el final */}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </>
             )}
           </ScrollShadow>
           <div className='mt-4 flex max-w-full flex-col gap-2 px-6 pb-6 bg-default-50 z-10'>

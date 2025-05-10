@@ -33,7 +33,14 @@ export default function SidebarBody() {
       setAccumulatedChats((prevChats) => {
         const existingIds = new Set(prevChats.map((chat) => chat.chat_uuid))
         const newChats = chats.filter((chat) => !existingIds.has(chat.chat_uuid))
-        return [...prevChats, ...newChats]
+
+        // Ordenamos los chats por fecha de actualización (más recientes primero)
+        const allChats = [...prevChats, ...newChats]
+        allChats.sort((a, b) => {
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        })
+
+        return allChats
       })
       setLoadingMore(false)
     }

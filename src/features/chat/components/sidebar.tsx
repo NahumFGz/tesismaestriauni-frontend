@@ -57,7 +57,7 @@ export function SidebarContainer({
       <div className='flex w-full flex-col px-4 sm:max-w-[calc(100%_-_288px)]'>
         <header
           className={cn(
-            'flex h-16 min-h-16 items-center justify-between gap-2 rounded-none rounded-t-medium border-small border-divider px-4 py-3',
+            'sticky top-0 z-20 flex h-16 min-h-16 items-center justify-between gap-2 rounded-none rounded-t-medium border-small border-divider bg-background px-4 py-3',
             classNames?.['header']
           )}
         >
@@ -81,8 +81,8 @@ export function SidebarContainer({
           )}
           {header}
         </header>
-        <main className='flex h-full'>
-          <div className='flex h-full w-full flex-col gap-4 rounded-none rounded-b-medium border-0 border-b border-l border-r border-divider py-3'>
+        <main className='flex h-[calc(100%-4rem)] overflow-hidden'>
+          <div className='flex h-full w-full flex-col gap-4 rounded-none rounded-b-medium border-0 border-b border-l border-r border-divider py-3 overflow-hidden'>
             {children}
           </div>
         </main>

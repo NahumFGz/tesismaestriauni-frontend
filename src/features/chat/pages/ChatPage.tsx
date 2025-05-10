@@ -239,13 +239,19 @@ export function ChatPage() {
 
   // Función para desplazarse al final de los mensajes
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end' // Asegura que el scroll se enfoque en el final del contenido
+      })
+    }
   }
 
   // Desplazarse al final cuando cambian los mensajes o se carga la página
   useEffect(() => {
-    if (localMessages.length > 0) {
-      scrollToBottom()
+    if (localMessages.length > 0 || streamingMessage) {
+      // Pequeño retraso para asegurar que el DOM se ha actualizado
+      setTimeout(scrollToBottom, 50)
     }
   }, [localMessages, streamingMessage])
 
@@ -287,8 +293,11 @@ export function ChatPage() {
         title='Apply for launch promotion'
       >
         <div className='relative flex h-full flex-col'>
-          {/* Ajustamos el área de mensajes para que no sea tapada por el área de entrada */}
-          <ScrollShadow className='flex flex-1 flex-col gap-6 overflow-y-auto p-6 pb-12'>
+          {/* Contenedor de mensajes con scroll */}
+          <ScrollShadow
+            className='flex flex-1 flex-col gap-6 overflow-y-auto p-6 pb-12'
+            hideScrollBar
+          >
             {chat_uuid ? (
               isChangingChat ? (
                 <div className='flex justify-center items-center h-full'>
@@ -338,7 +347,8 @@ export function ChatPage() {
               </>
             )}
           </ScrollShadow>
-          <div className='mt-4 flex max-w-full flex-col gap-2 px-6 pb-6 bg-default-50 z-10'>
+          {/* Área de entrada fija en la parte inferior */}
+          <div className='sticky bottom-0 mt-auto flex max-w-full flex-col gap-2 px-6 pb-6 bg-default-50 z-10'>
             <PromptInputWithEnclosedActions
               classNames={{
                 button:

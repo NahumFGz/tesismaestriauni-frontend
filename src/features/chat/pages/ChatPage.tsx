@@ -9,7 +9,7 @@ import {
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
 
-import SidebarContainer from '../components/sidebar-with-chat-history'
+import SidebarContainer from '../components/sidebar'
 import MessagingChatMessage from '../components/messaging-chat-message'
 import messagingChatAIConversations from '../components/messaging-chat-ai-conversations'
 

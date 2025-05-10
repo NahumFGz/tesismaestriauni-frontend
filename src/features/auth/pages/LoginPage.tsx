@@ -1,4 +1,4 @@
-import { AcmeIcon } from '../../../assets/acme'
+import { AcmeIcon } from '../../../assets/icons/AcmeIcon'
 import { ThemeSwitchButton } from '../../../components/ui/ThemeSwitchButton'
 import { LoginForm } from '../components/LoginForm'
 

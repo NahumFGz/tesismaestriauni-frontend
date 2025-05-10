@@ -1,4 +1,4 @@
-import type { IconSvgProps } from '../types'
+import type { IconSvgProps } from '../../types'
 
 export const AcmeIcon: React.FC<IconSvgProps> = ({ size = 32, width, height, ...props }) => (
   <svg fill='none' height={size || height} viewBox='0 0 32 32' width={size || width} {...props}>

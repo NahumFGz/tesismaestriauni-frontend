@@ -3,6 +3,7 @@ import { AuthLayout } from '../features/auth/layouts/AuthLayout'
 import { LoginPage } from '../features/auth/pages/LoginPage'
 import { ChatLayout } from '../features/chat/layouts/ChatLayout'
 import { ChatPage } from '../features/chat/pages/ChatPage'
+import { ProtectedRoutes } from './ProtectedRoutes'
 
 export function Navigation() {
   return (
@@ -16,8 +17,10 @@ export function Navigation() {
           <Route path='/auth/login' element={<LoginPage />} />
         </Route>
 
-        <Route element={<ChatLayout />}>
-          <Route path='chat/conversation' element={<ChatPage />} />
+        <Route element={<ProtectedRoutes />}>
+          <Route element={<ChatLayout />}>
+            <Route path='chat/conversation' element={<ChatPage />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

@@ -4,6 +4,9 @@ import type { MessagingChatMessageProps } from './data'
 import React, { useCallback } from 'react'
 import { Avatar, Image } from '@heroui/react'
 import { cn } from '@heroui/react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 
 const MessagingChatMessage = React.forwardRef<HTMLDivElement, MessagingChatMessageProps>(
   ({ avatar, name, time, message, isRTL, imageUrl, className, classNames, ...props }, ref) => {
@@ -31,14 +34,22 @@ const MessagingChatMessage = React.forwardRef<HTMLDivElement, MessagingChatMessa
             <div className='flex-end text-small text-default-400'>{time}</div>
           </div>
           <div ref={messageRef} className='mt-2 text-small text-default-900'>
-            <div className='whitespace-pre-line'>{message}</div>
+            {isRTL ? (
+              <div className='prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:p-2 prose-pre:rounded-md prose-pre:text-xs prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1'>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {message}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <div className='whitespace-pre-line'>{message}</div>
+            )}
             {imageUrl && (
               <Image
                 alt={`Image sent by ${name}`}
                 className='mt-2 border-2 border-default-200 shadow-small'
-                height={96}
                 src={imageUrl}
                 width={264}
+                height={96}
               />
             )}
           </div>

@@ -4,6 +4,7 @@ import React from 'react'
 import { Button, Input, Checkbox, Link, Divider, Form } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { AcmeIcon } from '../../../assets/acme'
+import { ThemeSwitchButton } from '../../../components/ui/ThemeSwitchButton'
 
 export function LoginPage() {
   const [isVisible, setIsVisible] = React.useState(false)
@@ -17,6 +18,10 @@ export function LoginPage() {
 
   return (
     <div className='flex h-full  w-full flex-col items-center justify-center'>
+      {/* Botón en top-right */}
+      <div className='absolute right-6 top-6'>
+        <ThemeSwitchButton />
+      </div>
       <div className='flex flex-col items-center pb-6'>
         <AcmeIcon size={60} />
         <p className='text-xl font-medium'>Welcome Back</p>

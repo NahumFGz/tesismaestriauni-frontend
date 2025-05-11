@@ -1,7 +1,10 @@
 import { Button } from '@heroui/react'
 import { Icon } from '@iconify/react'
+import { useThemeStoreDispatch } from '../../../store/themeStore'
 
 export default function SidebarFooter() {
+  const { theme, toggleTheme } = useThemeStoreDispatch()
+
   return (
     <>
       <div className='mt-auto flex flex-col'>
@@ -37,6 +40,21 @@ export default function SidebarFooter() {
           variant='light'
         >
           Settings
+        </Button>
+
+        <Button
+          className='justify-start text-default-600'
+          startContent={
+            <Icon
+              className='text-default-600'
+              icon={theme === 'dark' ? 'solar:moon-linear' : 'solar:sun-linear'}
+              width={20}
+            />
+          }
+          variant='light'
+          onPress={toggleTheme}
+        >
+          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
         </Button>
       </div>
     </>

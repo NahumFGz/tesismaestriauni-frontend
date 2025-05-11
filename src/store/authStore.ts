@@ -36,6 +36,23 @@ const getStorage = (rememberMe: boolean) => {
 // Constante para el nombre del almacenamiento
 const STORAGE_KEY = 'auth-storage'
 
+// Detecta si hay una sesión guardada en localStorage
+const hasLocalStorageSession = () => {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      return parsed.state && parsed.state.rememberMe === true
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+// Detecta el valor inicial de rememberMe
+const initialRememberMe = hasLocalStorageSession()
+
 export const useAuthStore = create<AuthStore>()(
   devtools(
     persist(
@@ -44,7 +61,7 @@ export const useAuthStore = create<AuthStore>()(
         refreshToken: null,
         profile: null,
         isAuth: false,
-        rememberMe: false,
+        rememberMe: initialRememberMe,
 
         setAuth: ({ token, refreshToken, profile, rememberMe }) => {
           // 🔁 Cambiar almacenamiento dinámicamente
@@ -83,7 +100,7 @@ export const useAuthStore = create<AuthStore>()(
       }),
       {
         name: STORAGE_KEY,
-        storage: getStorage(false), // valor por defecto usando sessionStorage
+        storage: getStorage(initialRememberMe), // Usa localStorage si ya hay una sesión guardada
         partialize: (state): Partial<AuthStore> => ({
           token: state.token,
           refreshToken: state.refreshToken,

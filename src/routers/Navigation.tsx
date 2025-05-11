@@ -4,6 +4,7 @@ import { LoginPage } from '../features/auth/pages/LoginPage'
 import { ChatLayout } from '../features/chat/layouts/ChatLayout'
 import { ChatPage } from '../features/chat/pages/ChatPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
+import { PublicRoutes } from './PublicRoutes'
 
 export function Navigation() {
   return (
@@ -13,8 +14,10 @@ export function Navigation() {
         <Route path='/' element={<Navigate to='/auth/login' replace />} />
 
         {/* Rutas de autentificación */}
-        <Route element={<AuthLayout />}>
-          <Route path='/auth/login' element={<LoginPage />} />
+        <Route element={<PublicRoutes />}>
+          <Route element={<AuthLayout />}>
+            <Route path='/auth/login' element={<LoginPage />} />
+          </Route>
         </Route>
 
         <Route element={<ProtectedRoutes />}>

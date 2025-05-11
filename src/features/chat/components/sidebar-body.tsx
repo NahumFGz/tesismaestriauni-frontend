@@ -7,11 +7,12 @@ import { SidebarRecentChatOptions } from './chat-options'
 import { AvatarDropdown } from './avatar-dropdown'
 import { Loading } from '../../../components/ui/Loading'
 import { getChats, type ChatType } from '../../../services/chat'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
 export default function SidebarBody() {
   const navigate = useNavigate()
+  const { chat_uuid } = useParams()
   const [pagination, setPagination] = useState({ page: 1, take: 10 })
   const [accumulatedChats, setAccumulatedChats] = useState<ChatType[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
@@ -91,7 +92,9 @@ export default function SidebarBody() {
                   <ListboxItem
                     key={chat.chat_uuid}
                     onPress={() => navigate(`/chat/conversation/${chat.chat_uuid}`)}
-                    className='group h-[44px] px-[12px] py-[10px] text-default-500'
+                    className={`group h-[44px] px-[12px] py-[10px] text-default-500 ${
+                      chat.chat_uuid === chat_uuid ? 'bg-content3' : ''
+                    }`}
                     endContent={<SidebarRecentChatOptions />}
                   >
                     {chat.title || 'Sin título'}

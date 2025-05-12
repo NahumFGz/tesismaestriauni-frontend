@@ -33,10 +33,42 @@ export interface ClientToServerEvents {
   ) => void
 }
 
+// Función para registrar mensajes de log
+const logSocketEvent = (event: string, data?: unknown) => {
+  const prefix = '[Socket.IO]'
+  if (data) {
+    console.log(`${prefix} ${event}:`, data)
+  } else {
+    console.log(`${prefix} ${event}`)
+  }
+}
+
 // Función para obtener la instancia del socket, creándola si no existe
 export const getSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
   if (!socket) {
+    logSocketEvent('Creando nueva conexión de socket')
     socket = io(`${import.meta.env.VITE_BASE_API_URL}/messages`)
+
+    // Registrar eventos de conexión
+    socket.on('connect', () => {
+      logSocketEvent('Conectado exitosamente', { id: socket?.id })
+    })
+
+    socket.on('disconnect', (reason) => {
+      logSocketEvent('Desconectado', { reason })
+    })
+
+    socket.on('reconnect_attempt', (attempt) => {
+      logSocketEvent('Intentando reconectar', { attempt })
+    })
+
+    socket.on('reconnect', (attempt) => {
+      logSocketEvent('Reconectado exitosamente', { attempt })
+    })
+
+    socket.on('error', (error) => {
+      logSocketEvent('Error de conexión', error)
+    })
   }
   return socket
 }
@@ -44,6 +76,7 @@ export const getSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> 
 // Función para desconectar el socket
 export const disconnectSocket = (): void => {
   if (socket) {
+    logSocketEvent('Desconectando socket manualmente')
     socket.disconnect()
     socket = null
   }

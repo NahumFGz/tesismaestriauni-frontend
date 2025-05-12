@@ -1,4 +1,4 @@
-import { ScrollShadow } from '@heroui/react'
+import { ScrollShadow, Spinner } from '@heroui/react'
 
 import { SidebarContainer } from '../components/sidebar'
 import { PromptInputWithEnclosedActions } from '../components/prompt-input-with-enclosed-actions'
@@ -11,37 +11,37 @@ import { getMessagesByUuid } from '../../../services/chat'
 import type { FormattedMessageType } from '../../../services/chat'
 import { Loading } from '../../../components/ui/Loading'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getSocket, disconnectSocket } from '../../../services/config/socketio'
+import { getSocket } from '../../../services/config/socketio'
 import type { GeneratedResponse } from '../../../services/config/socketio'
-import { Spinner } from '@heroui/react'
 import { useQueryClient } from '@tanstack/react-query'
 
 /**
  * ChatPage - Componente principal para la interfaz de chat
  *
  * Flujo de funcionamiento:
- * 1. Cargar mensajes existentes si hay un UUID en la URL
- * 2. Permitir enviar mensajes con o sin UUID (chat nuevo o existente)
- * 3. Al enviar un mensaje sin UUID, se espera que el servidor devuelva un nuevo UUID
- * 4. Cuando se recibe un nuevo UUID, se navega a la URL con ese UUID
- * 5. Se muestran los mensajes en tiempo real con streaming mientras se generan
- * 6. Se mantiene el scroll siempre en el último mensaje
- *
- * Características implementadas:
- * - Carga de mensajes existentes para un chat específico
- * - Envío de mensajes a través de websockets
- * - Streaming de respuestas en tiempo real
- * - Navegación automática a nuevo chat cuando se recibe un UUID nuevo
- * - Indicador de carga mientras se espera respuesta
- * - Manejo de cambio entre diferentes chats
- * - Limpieza de mensajes al iniciar un nuevo chat
- * - Actualización de la lista de chats al crear uno nuevo
+ * 1. Carga mensajes existentes cuando hay un UUID en la URL
+ * 2. Permite enviar mensajes en chats nuevos o existentes
+ * 3. Al enviar un mensaje sin UUID, el servidor devuelve un nuevo UUID
+ * 4. Con el nuevo UUID, se navega automáticamente a la URL correspondiente
+ * 5. Las respuestas se muestran en tiempo real mediante streaming
+ * 6. El scroll se mantiene automáticamente en el último mensaje
  *
  * Estados principales:
- * - localMessages: Mensajes del chat actual
- * - streamingMessage: Mensaje que se está recibiendo en streaming
- * - isSending: Indica si se está enviando/esperando respuesta
- * - isChangingChat: Indica si se está cambiando entre chats
+ * - localMessages: Mensajes del chat actual (array)
+ * - streamingMessage: Mensaje que se está recibiendo en streaming (string)
+ * - isSending: Indica si se está esperando respuesta (boolean)
+ * - isChangingChat: Indica cambio entre chats (boolean)
+ *
+ * Gestión de eventos:
+ * - Socket 'generated': Recibe mensaje completo y actualiza estado
+ * - Socket 'stream.token': Actualiza mensaje en streaming
+ * - Socket 'stream.end': Finaliza streaming (no acción)
+ * - Socket 'stream.error': Maneja errores de comunicación
+ *
+ * Optimizaciones:
+ * - Conexión de socket persistente durante toda la sesión
+ * - Referencias para prevenir re-renderizados innecesarios
+ * - Gestión eficiente de cambios entre chats
  */
 export function ChatPage() {
   const { chat_uuid } = useParams()
@@ -52,17 +52,22 @@ export function ChatPage() {
   const previousChatUuidRef = useRef<string | null>(null)
   const previousPathRef = useRef<string | null>(null)
   const navigatingRef = useRef(false)
+  const socketRef = useRef(getSocket()) // Mantener referencia al socket
 
-  // Estado para el prompt
   const [prompt, setPrompt] = useState<string>('')
-  // Estado local para los mensajes (para actualización en tiempo real)
   const [localMessages, setLocalMessages] = useState<FormattedMessageType[]>([])
-  // Estado para indicar si se está enviando un mensaje
   const [isSending, setIsSending] = useState(false)
-  // Estado para almacenar el mensaje en streaming
   const [streamingMessage, setStreamingMessage] = useState<string>('')
-  // Estado para rastrear si estamos cambiando de chat
   const [isChangingChat, setIsChangingChat] = useState(false)
+
+  const logger = (type: string, message: string, data?: unknown) => {
+    const prefix = `[ChatPage:${type}]`
+    if (data) {
+      console.log(`${prefix} ${message}`, data)
+    } else {
+      console.log(`${prefix} ${message}`)
+    }
+  }
 
   // Limpiar mensajes cuando cambia la ruta
   useEffect(() => {
@@ -70,13 +75,12 @@ export function ChatPage() {
 
     // Si estamos en la ruta base de chat sin UUID, limpiar los mensajes
     if (currentPath === '/chat/conversation' && previousPathRef.current !== currentPath) {
-      console.log('Navegando a New Chat, limpiando mensajes')
+      logger('navigation', 'Navegando a New Chat, limpiando mensajes')
       setLocalMessages([])
       setStreamingMessage('')
       setIsSending(false)
     }
 
-    // Actualizar la referencia de la ruta anterior
     previousPathRef.current = currentPath
   }, [location.pathname])
 
@@ -88,12 +92,12 @@ export function ChatPage() {
     setLocalMessages([])
 
     try {
-      console.log('Cargando mensajes para chat:', uuid)
+      logger('messages', `Cargando mensajes para chat: ${uuid}`)
       const messages = await getMessagesByUuid(uuid)
-      console.log('Mensajes cargados:', messages.length)
+      logger('messages', `Mensajes cargados: ${messages.length}`)
       setLocalMessages(messages)
     } catch (error) {
-      console.error('Error al cargar mensajes:', error)
+      logger('error', 'Error al cargar mensajes:', error)
     } finally {
       setIsChangingChat(false)
     }
@@ -102,11 +106,13 @@ export function ChatPage() {
   // Efecto para detectar cambios en chat_uuid y cargar mensajes
   useEffect(() => {
     if (chat_uuid && chat_uuid !== previousChatUuidRef.current) {
-      console.log('Cambio de chat detectado:', previousChatUuidRef.current, '->', chat_uuid)
+      logger(
+        'chat',
+        `Cambio de chat detectado: ${previousChatUuidRef.current || 'nuevo'} -> ${chat_uuid}`
+      )
       previousChatUuidRef.current = chat_uuid
       setStreamingMessage('')
 
-      // Si estábamos navegando, reiniciamos el estado
       if (navigatingRef.current) {
         navigatingRef.current = false
         setIsSending(false)
@@ -116,17 +122,18 @@ export function ChatPage() {
     }
   }, [chat_uuid, loadMessages])
 
-  // Configuración de Socket.IO
+  // Configuración de Socket.IO - Una sola vez al montar el componente
   useEffect(() => {
-    const socket = getSocket()
+    const socket = socketRef.current
+    logger('socket', 'Configurando listeners de socket (conexión persistente)')
 
     // Evento cuando se recibe un mensaje completo
     socket.on('generated', (data: GeneratedResponse) => {
-      console.log('Mensaje generado recibido:', data)
+      logger('socket', 'Mensaje generado recibido:', data)
 
       // Si recibimos un nuevo UUID y no teníamos uno, navegamos a la nueva URL
       if (data.chat_uuid && !chat_uuid) {
-        console.log('Nuevo chat creado, navegando a:', data.chat_uuid)
+        logger('navigation', `Nuevo chat creado, navegando a: ${data.chat_uuid}`)
         navigatingRef.current = true
 
         // Navegar a la URL con el nuevo UUID
@@ -166,23 +173,25 @@ export function ChatPage() {
       }
     })
 
-    // Evento cuando termina el streaming
-    socket.on('stream.end', () => {
-      // No hacemos nada aquí ya que el mensaje completo llegará por 'generated'
-    })
-
     // Evento cuando hay un error en el streaming
     socket.on('stream.error', (error) => {
-      console.error('Error en streaming:', error)
+      logger('error', 'Error en streaming:', error)
       setIsSending(false)
     })
 
+    // Verificar que el socket esté conectado o reconectar si es necesario
+    if (!socket.connected) {
+      logger('socket', 'Socket no conectado, intentando conectar...')
+      socket.connect()
+    }
+
     return () => {
-      // Limpiamos los listeners cuando se desmonta el componente
+      logger('socket', 'Limpiando listeners de socket (manteniendo conexión)')
       socket.off('generated')
       socket.off('stream.token')
       socket.off('stream.end')
       socket.off('stream.error')
+      // No desconectamos el socket al desmontar el componente para mantenerlo persistente
     }
   }, [chat_uuid, navigate, queryClient])
 
@@ -190,8 +199,12 @@ export function ChatPage() {
   const handleSendPrompt = () => {
     if (!prompt.trim() || isSending) return
 
-    const socket = getSocket()
+    const socket = socketRef.current
     setIsSending(true)
+    logger(
+      'prompt',
+      `Enviando prompt: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`
+    )
 
     // Agregamos el mensaje del usuario al estado local inmediatamente
     const userMessage: FormattedMessageType = {
@@ -212,17 +225,13 @@ export function ChatPage() {
         chat_uuid: chat_uuid || '' // Enviamos cadena vacía si no hay UUID
       },
       (ack) => {
-        // Verificamos si el ack existe y tiene la estructura esperada
         if (ack) {
-          // Si hay un mensaje de error explícito, lo mostramos
           if (ack.success === false && ack.message) {
-            console.error('Error al enviar mensaje:', ack.message)
+            logger('error', `Error al enviar mensaje: ${ack.message}`)
             setIsSending(false)
           }
         } else {
-          // Si no hay ack o no tiene la estructura esperada, simplemente continuamos
-          // El mensaje "generated" debería llegar de todas formas
-          console.log('Mensaje enviado, esperando respuesta...')
+          logger('prompt', 'Mensaje enviado, esperando respuesta...')
         }
       }
     )
@@ -233,8 +242,7 @@ export function ChatPage() {
 
   // Función para manejar la adición de archivos
   const handleAddFile = () => {
-    console.log('Agregando archivo')
-    // Aquí irá la lógica para agregar archivos
+    logger('file', 'Agregando archivo (funcionalidad no implementada)')
   }
 
   // Función para desplazarse al final de los mensajes
@@ -242,7 +250,7 @@ export function ChatPage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
         behavior: 'smooth',
-        block: 'end' // Asegura que el scroll se enfoque en el final del contenido
+        block: 'end'
       })
     }
   }
@@ -250,17 +258,9 @@ export function ChatPage() {
   // Desplazarse al final cuando cambian los mensajes o se carga la página
   useEffect(() => {
     if (localMessages.length > 0 || streamingMessage) {
-      // Pequeño retraso para asegurar que el DOM se ha actualizado
       setTimeout(scrollToBottom, 50)
     }
   }, [localMessages, streamingMessage])
-
-  // Desconectar el socket cuando se desmonta el componente
-  useEffect(() => {
-    return () => {
-      disconnectSocket()
-    }
-  }, [])
 
   // Combinamos los mensajes locales con el mensaje en streaming si existe
   const displayMessages = [...localMessages]
@@ -293,7 +293,6 @@ export function ChatPage() {
         title='Apply for launch promotion'
       >
         <div className='relative flex h-full flex-col'>
-          {/* Contenedor de mensajes con scroll */}
           <ScrollShadow
             className='flex flex-1 flex-col gap-6 overflow-y-auto p-6 pb-12'
             hideScrollBar
@@ -314,9 +313,7 @@ export function ChatPage() {
                       {...message}
                     />
                   ))}
-                  {/* Spinner de espera de respuesta */}
                   <WaitingResponseSpinner />
-                  {/* Elemento invisible para hacer scroll hasta el final */}
                   <div ref={messagesEndRef} />
                 </>
               ) : (
@@ -338,16 +335,13 @@ export function ChatPage() {
                         {...message}
                       />
                     ))}
-                    {/* Spinner de espera de respuesta */}
                     <WaitingResponseSpinner />
-                    {/* Elemento invisible para hacer scroll hasta el final */}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
               </>
             )}
           </ScrollShadow>
-          {/* Área de entrada fija en la parte inferior */}
           <div className='sticky bottom-0 mt-auto flex max-w-full flex-col gap-2 px-6 pb-6 bg-default-50 z-10'>
             <PromptInputWithEnclosedActions
               classNames={{

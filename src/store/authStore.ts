@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, devtools } from 'zustand/middleware'
+import { disconnectSocket } from '../services/config/socketio'
 
 export type AuthTokens = {
   token: string
@@ -88,6 +89,9 @@ export const useAuthStore = create<AuthStore>()(
           } else {
             sessionStorage.removeItem(STORAGE_KEY)
           }
+
+          // Desconectar el socket al cerrar sesión
+          disconnectSocket()
 
           set({
             token: null,

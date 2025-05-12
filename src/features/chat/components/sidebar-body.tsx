@@ -92,8 +92,10 @@ export default function SidebarBody() {
                   <ListboxItem
                     key={chat.chat_uuid}
                     onPress={() => navigate(`/chat/conversation/${chat.chat_uuid}`)}
-                    className={`group h-[44px] px-[12px] py-[10px] text-default-500 ${
-                      chat.chat_uuid === chat_uuid ? 'bg-content3' : ''
+                    className={`group h-[44px] px-[12px] py-[10px] ${
+                      chat.chat_uuid === chat_uuid
+                        ? 'bg-content3 text-content1-foreground'
+                        : 'text-default-500'
                     }`}
                     endContent={<SidebarRecentChatOptions />}
                   >

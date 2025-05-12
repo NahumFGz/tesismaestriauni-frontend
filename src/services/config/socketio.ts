@@ -36,7 +36,7 @@ export interface ClientToServerEvents {
 // Función para obtener la instancia del socket, creándola si no existe
 export const getSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
   if (!socket) {
-    socket = io('http://localhost:3000/messages')
+    socket = io(`${import.meta.env.VITE_BASE_API_URL}/messages`)
   }
   return socket
 }

@@ -36,7 +36,13 @@ const MessagingChatMessage = React.forwardRef<HTMLDivElement, MessagingChatMessa
           <div ref={messageRef} className='mt-2 text-small text-default-900'>
             {isRTL ? (
               <div className='prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:p-2 prose-pre:rounded-md prose-pre:text-xs prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1'>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    a: (props) => <a target='_blank' rel='noopener noreferrer' {...props} />
+                  }}
+                >
                   {message}
                 </ReactMarkdown>
               </div>

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { SidebarContainer } from '../components/sidebar'
-import { SidebarContainerHeader } from '../components/sidebar-container-header'
 import { ChatMessages } from '../components/ChatMessages'
 import { ChatInput } from '../components/ChatInput'
 
@@ -96,31 +94,23 @@ export function ChatPage() {
   const displayMessages = getDisplayMessages()
 
   return (
-    <div className='h-dvh w-full max-w-full'>
-      <SidebarContainer
-        header={<SidebarContainerHeader />}
-        subTitle='Today'
-        title='Apply for launch promotion'
-      >
-        <div className='relative flex h-full flex-col'>
-          <ChatMessages
-            chatUuid={chat_uuid}
-            displayMessages={displayMessages}
-            isChangingChat={isChangingChat}
-            isSending={isSending}
-            streamingMessage={streamingMessage}
-            messagesEndRef={messagesEndRef}
-            navigatingRef={navigatingRef}
-          />
-          <ChatInput
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            onSendPrompt={handleSendPrompt}
-            onAddFile={handleAddFile}
-            disabled={isSending || isChangingChat}
-          />
-        </div>
-      </SidebarContainer>
+    <div className='relative flex h-full flex-col'>
+      <ChatMessages
+        chatUuid={chat_uuid}
+        displayMessages={displayMessages}
+        isChangingChat={isChangingChat}
+        isSending={isSending}
+        streamingMessage={streamingMessage}
+        messagesEndRef={messagesEndRef}
+        navigatingRef={navigatingRef}
+      />
+      <ChatInput
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        onSendPrompt={handleSendPrompt}
+        onAddFile={handleAddFile}
+        disabled={isSending || isChangingChat}
+      />
     </div>
   )
 }

@@ -46,7 +46,11 @@ export function BudgetPage() {
     queryKey: ['budget', page, take, debouncedSearch],
     queryFn: () => getBudget({ page, take, search: debouncedSearch }),
     retry: 2,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 60
   })
 
   // Actualizar los metadatos cuando tengamos datos

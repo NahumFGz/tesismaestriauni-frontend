@@ -80,7 +80,11 @@ export function AttendancePage() {
     queryKey: ['attendance', currentPage, currentTake, currentSearch],
     queryFn: () => getAttendance({ page: currentPage, take: currentTake, search: currentSearch }),
     retry: 2,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 60
   })
 
   // Actualizar los metadatos cuando tengamos datos

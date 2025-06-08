@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Input,
@@ -23,11 +23,16 @@ export function AttendancePage() {
   const [page, setPage] = useState(1)
   const [take, setTake] = useState(20)
 
+  // Ref para mantener los metadatos de paginación durante loading
+  const lastMetaRef = useRef<{ totalPages: number } | null>(null)
+
   // Debounce effect for search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search)
       setPage(1) // Reset to first page when searching
+      // Resetear metadatos cuando cambia el search
+      lastMetaRef.current = null
     }, 300) // 300ms delay
 
     return () => clearTimeout(timer)
@@ -44,6 +49,11 @@ export function AttendancePage() {
     retry: 2,
     refetchOnWindowFocus: false
   })
+
+  // Actualizar los metadatos cuando tengamos datos
+  if (attendanceData?.meta) {
+    lastMetaRef.current = { totalPages: attendanceData.meta.totalPages }
+  }
 
   const handleSearch = (value: string) => {
     setSearch(value)
@@ -158,10 +168,10 @@ export function AttendancePage() {
       </div>
 
       {/* Pagination */}
-      {attendanceData?.meta && attendanceData.meta.totalPages > 1 && (
+      {lastMetaRef.current && lastMetaRef.current.totalPages > 1 && (
         <div className='flex justify-center'>
           <Pagination
-            total={attendanceData.meta.totalPages}
+            total={lastMetaRef.current.totalPages}
             page={page}
             onChange={setPage}
             showControls

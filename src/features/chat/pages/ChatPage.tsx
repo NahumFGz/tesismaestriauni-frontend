@@ -1,11 +1,16 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useOutletContext } from 'react-router-dom'
 
 import { ChatMessages } from '../components/ChatMessages'
 import { ChatInput } from '../components/ChatInput'
 
 import { useChatMessages, useChatSocket, useChatNavigation, useChatScroll } from '../hooks'
 import { createUserMessage } from '../utils/messageHelpers'
+
+interface ChatContextType {
+  isStreaming: boolean
+  setIsStreaming: (value: boolean) => void
+}
 
 /**
  * ChatPage - Componente principal para la interfaz de chat
@@ -37,6 +42,7 @@ import { createUserMessage } from '../utils/messageHelpers'
  */
 export function ChatPage() {
   const { chat_uuid } = useParams()
+  const { isStreaming } = useOutletContext<ChatContextType>()
   const [prompt, setPrompt] = useState<string>('')
   const [isSending, setIsSending] = useState(false)
 
@@ -53,7 +59,7 @@ export function ChatPage() {
     getDisplayMessages
   } = useChatMessages()
 
-  const { sendMessage, navigatingRef } = useChatSocket({
+  const { sendMessage, sendStreamingMessage, navigatingRef } = useChatSocket({
     chatUuid: chat_uuid,
     onStreamingToken: updateStreamingMessage,
     onMessageGenerated: addStreamingMessage,
@@ -82,7 +88,14 @@ export function ChatPage() {
     const userMessage = createUserMessage(prompt)
 
     addMessage(userMessage)
-    sendMessage(prompt, chat_uuid)
+
+    // Usar streaming o REST según el estado del switch
+    if (isStreaming) {
+      sendStreamingMessage(prompt, chat_uuid)
+    } else {
+      sendMessage(prompt, chat_uuid)
+    }
+
     setPrompt('')
   }
 

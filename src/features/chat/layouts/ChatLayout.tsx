@@ -1,9 +1,11 @@
 import { Outlet, useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import { SidebarContainer } from '../components/sidebar'
 import { SidebarContainerHeader } from '../components/sidebar-container-header'
 
 export function ChatLayout() {
   const location = useLocation()
+  const [isStreaming, setIsStreaming] = useState(false)
 
   // Determinar el título, subtítulo y header según la ruta
   const getPageInfo = () => {
@@ -25,11 +27,15 @@ export function ChatLayout() {
   return (
     <div className='h-screen w-screen'>
       <SidebarContainer
-        header={showHeader ? <SidebarContainerHeader /> : undefined}
+        header={
+          showHeader ? (
+            <SidebarContainerHeader isStreaming={isStreaming} onStreamingChange={setIsStreaming} />
+          ) : undefined
+        }
         subTitle={subTitle}
         title={title}
       >
-        <Outlet />
+        <Outlet context={{ isStreaming, setIsStreaming }} />
       </SidebarContainer>
     </div>
   )

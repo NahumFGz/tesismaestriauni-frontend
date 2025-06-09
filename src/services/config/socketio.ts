@@ -17,10 +17,18 @@ export interface GeneratedResponse {
   chat_uuid: string
 }
 
+// Interfaz para los tokens de streaming
+export interface StreamingTokenResponse {
+  chat_uuid: string
+  token: string
+  is_complete: boolean
+  full_message: string
+}
+
 // Interfaz para los eventos que recibimos del servidor
 export interface ServerToClientEvents {
   generated: (data: GeneratedResponse) => void
-  'stream.token': (token: string | { content: string }) => void
+  'stream.token': (token: string | { content: string } | StreamingTokenResponse) => void
   'stream.end': () => void
   'stream.error': (error: string) => void
 }
@@ -30,6 +38,10 @@ export interface ClientToServerEvents {
   generate: (
     dto: GenerateMessageDTO,
     callback: (ack: { success: boolean; message?: string }) => void
+  ) => void
+  'generate.streaming': (
+    dto: GenerateMessageDTO,
+    callback?: (ack: { success: boolean; message?: string }) => void
   ) => void
 }
 

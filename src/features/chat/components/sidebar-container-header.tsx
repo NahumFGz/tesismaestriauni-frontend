@@ -1,9 +1,24 @@
-import { Button, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger } from '@heroui/react'
+import {
+  Button,
+  DropdownItem,
+  DropdownMenu,
+  DropdownSection,
+  DropdownTrigger,
+  Switch
+} from '@heroui/react'
 
 import { Dropdown } from '@heroui/react'
 import { Icon } from '@iconify/react'
 
-export function SidebarContainerHeader() {
+interface SidebarContainerHeaderProps {
+  isStreaming?: boolean
+  onStreamingChange?: (isStreaming: boolean) => void
+}
+
+export function SidebarContainerHeader({
+  isStreaming = false,
+  onStreamingChange
+}: SidebarContainerHeaderProps) {
   return (
     <>
       <Dropdown className='bg-content1'>
@@ -101,6 +116,18 @@ export function SidebarContainerHeader() {
           </DropdownSection>
         </DropdownMenu>
       </Dropdown>
+
+      <div className='flex items-center gap-2'>
+        <span className='text-sm text-default-500'>Streaming</span>
+        <Switch
+          size='sm'
+          isSelected={isStreaming}
+          onValueChange={onStreamingChange}
+          classNames={{
+            wrapper: 'group-data-[selected=true]:bg-primary'
+          }}
+        />
+      </div>
     </>
   )
 }

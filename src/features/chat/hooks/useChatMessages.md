@@ -1,330 +1,448 @@
-# useChatMessages Hook - Implementación Híbrida con React Query
+# Chat con Streaming en Tiempo Real - Implementación Completa
 
 ## 📋 Resumen
 
-Hook personalizado que gestiona el estado de mensajes en el chat usando una **implementación híbrida** que combina React Query para el cacheo inteligente con estado local para actualizaciones en tiempo real.
+Sistema de chat híbrido que combina **REST** y **Streaming** en tiempo real usando Socket.IO, con gestión inteligente de estado mediante React Query y hooks personalizados.
 
-## 🎯 Problema Resuelto
+## 🎯 Características Principales
 
-**Problema Original:** La funcionalidad de chat tenía conflictos al usar React Query debido a:
+### ✨ **Dual Mode Chat**
 
-- Streaming de mensajes en tiempo real
-- Actualizaciones optimistas (agregar mensaje del usuario inmediatamente)
-- Navegación entre chats que requiere sincronización
-- Race conditions entre cache y estado local
+- **🔄 Modo REST**: Mensajes completos instantáneos
+- **⚡ Modo Streaming**: Tokens progresivos en tiempo real
+- **🎛️ Switch dinámico**: Cambio entre modos sin recargar
 
-**Solución:** Implementación híbrida que usa React Query solo para carga inicial y cacheo, mientras mantiene el estado local para todas las actualizaciones dinámicas.
+### 🚀 **Optimizaciones Avanzadas**
 
-## 🏗️ Arquitectura
+- **💾 Cache inteligente**: React Query con 5 min de persistencia
+- **🔄 Navegación instantánea**: Sin delay entre chats
+- **📱 Actualizaciones optimistas**: UX fluida
+- **🔗 Conexión persistente**: Socket.IO always-on
+
+## 🏗️ Arquitectura del Sistema
 
 ```
 ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-│   React Query       │    │   Estado Local      │    │   Funciones API     │
+│   Switch Control    │    │   Socket.IO         │    │   React Query       │
 │                     │    │                     │    │                     │
-│ • Carga inicial     │◄──►│ • Streaming         │◄──►│ • getMessagesByUuid │
-│ • Cacheo (5 min)    │    │ • Nuevos mensajes   │    │ • Socket events     │
-│ • Invalidación      │    │ • Display messages  │    │                     │
-└─────────────────────┘    └─────────────────────┘    └─────────────────────────┘
+│ ┌─ REST Mode ────┐  │    │ • generate          │◄──►│ • Cache (5 min)     │
+│ └─ Streaming ──┐ │  │◄──►│ • generate.streaming│    │ • Invalidation      │
+│               │ │  │    │ • stream.token      │    │ • Background sync   │
+│               │ │  │    │ • stream.end        │    │                     │
+│               │ │  │    │ • stream.error      │    │                     │
+└───────────────┼─┼──┘    └─────────────────────┘    └─────────────────────┘
+                │ │
+                │ │       ┌─────────────────────┐    ┌─────────────────────┐
+                │ └──────►│   Estado Local      │◄──►│   UI Components     │
+                │         │                     │    │                     │
+                └────────►│ • localMessages     │    │ • ChatMessages      │
+                          │ • streamingMessage  │    │ • ChatInput         │
+                          │ • isChangingChat    │    │ • WaitingSpinner    │
+                          │ • navigatingRef     │    │                     │
+                          └─────────────────────┘    └─────────────────────┘
 ```
 
-## 🔧 Configuración de React Query
+## 🔧 Implementación de Hooks
+
+### 📡 **useChatSocket - Gestión de Comunicación**
 
 ```typescript
-{
-  retry: 2,                    // 2 reintentos en caso de error
-  refetchOnWindowFocus: false, // No refetch al enfocar ventana
-  refetchOnMount: false,       // No refetch al montar componente
-  refetchOnReconnect: false,   // No refetch al reconectar
-  staleTime: 1000 * 60 * 5,   // 5 minutos de datos frescos
-  gcTime: 1000 * 60 * 60      // 1 hora en garbage collector
+interface UseChatSocketProps {
+  chatUuid?: string
+  onStreamingToken: (token: string, shouldReplace?: boolean) => void
+  onMessageGenerated: (message: FormattedMessageType) => void
+  onClearStreaming: () => void
+  onStopSending: () => void
 }
+
+// Funciones retornadas
+const {
+  sendMessage, // Envío REST
+  sendStreamingMessage, // Envío Streaming
+  navigatingRef // Control de navegación
+} = useChatSocket(props)
 ```
 
-## 📊 Estados Gestionados
+**Características clave:**
 
-| Estado             | Tipo                     | Propósito                             |
-| ------------------ | ------------------------ | ------------------------------------- |
-| `localMessages`    | `FormattedMessageType[]` | Mensajes del chat actual              |
-| `streamingMessage` | `string`                 | Mensaje siendo recibido por streaming |
-| `isChangingChat`   | `boolean`                | Indicador de cambio entre chats       |
-| `currentChatUuid`  | `string`                 | UUID del chat actualmente activo      |
-| `messagesLoaded`   | `boolean`                | Estado de control de carga            |
+- ✅ **Navegación automática** para nuevos chats
+- ✅ **Helpers centralizados** para evitar duplicación
+- ✅ **Manejo robusto de errores** con logging
+- ✅ **Conexión persistente** con reconexión automática
 
-## 🚀 Funcionalidades Principales
-
-### 1. **Carga Inteligente de Mensajes**
-
-```typescript
-loadMessages(uuid: string)
-```
-
-- Busca primero en cache para respuesta instantánea
-- Si no existe cache, carga desde servidor via React Query
-- Previene múltiples cargas simultáneas
-
-### 2. **Gestión de Streaming**
-
-```typescript
-updateStreamingMessage(token: string)  // Actualiza token por token
-addStreamingMessage(message)           // Finaliza streaming
-clearStreamingMessage()               // Limpia streaming
-```
-
-### 3. **Actualizaciones Optimistas**
-
-```typescript
-addMessage(message) // Agrega mensaje del usuario inmediatamente
-```
-
-### 4. **Sincronización de Cache**
-
-- Helper `updateCache()` centraliza la lógica de actualización
-- Se ejecuta automáticamente al agregar mensajes
-- Mantiene consistencia entre estado local y cache
-
-## 🔄 Flujo de Funcionamiento
-
-### **Chat Existente (con UUID):**
-
-1. `loadMessages(uuid)` → Busca en cache
-2. **Cache hit** → Carga instantánea ⚡
-3. **Cache miss** → React Query carga desde servidor
-4. Streaming y nuevos mensajes → Actualiza estado local + cache
-
-### **Chat Nuevo (sin UUID):**
-
-1. Estado local vacío inicialmente
-2. Usuario escribe → `addMessage()` → Estado local
-3. Streaming de respuesta → `updateStreamingMessage()`
-4. Al asignarse UUID → Se cachea para futuras visitas
-
-## 🔄 Sincronización Detallada: Cache vs Estado Dinámico
-
-### **🎯 El Problema de Sincronización**
-
-La complejidad principal radica en manejar **dos fuentes de verdad simultáneas**:
-
-- **Cache/Servidor**: Mensajes históricos que deben cargarse una vez
-- **Estado Local**: Mensajes nuevos que se agregan dinámicamente
-
-**Conflicto potencial:**
-
-```typescript
-// ❌ PROBLEMA: Race condition
-1. Usuario carga chat → React Query trae 10 mensajes
-2. Usuario escribe → Se agrega mensaje #11 localmente
-3. React Query se actualiza → Sobrescribe estado con solo 10 mensajes
-4. ¡Mensaje #11 desaparece! 💥
-```
-
-### **✅ Solución: Separación de Responsabilidades**
-
-#### **1. Control de Carga Inicial (`messagesLoaded`)**
-
-```typescript
-// Estado que previene cargas múltiples
-const [messagesLoaded, setMessagesLoaded] = useState(false)
-
-// Query solo se ejecuta si NO hemos cargado mensajes
-enabled: !!currentChatUuid && !messagesLoaded
-```
-
-**Flujo paso a paso:**
-
-```
-┌─ loadMessages(uuid) llamado
-│
-├─ messagesLoaded = false ← Permitir carga
-├─ currentChatUuid = uuid ← Activar query
-│
-├─ React Query enabled = true ← Query se ejecuta
-├─ queryFn() ejecuta ← Trae mensajes del servidor
-├─ messagesLoaded = true ← Bloquear futuras cargas
-│
-└─ Query enabled = false ← Query se desactiva automáticamente
-```
-
-#### **2. Carga Inmediata desde Cache**
-
-```typescript
-// Si hay cache, usarlo INMEDIATAMENTE sin esperar React Query
-const cachedMessages = queryClient.getQueryData(['chat-messages', uuid])
-if (cachedMessages) {
-  setLocalMessages(cachedMessages) // ← Carga instantánea
-  setMessagesLoaded(true) // ← Bloquea React Query
-  setIsChangingChat(false) // ← UX instantánea
-}
-```
-
-**Ventaja:** El usuario ve mensajes inmediatamente sin flicker ni loading.
-
-#### **3. Actualización Segura del Estado**
-
-```typescript
-// React Query actualiza estado SOLO si no hemos cargado
-if (!messagesLoaded) {
-  setLocalMessages(messages) // ← Solo primera vez
-  setMessagesLoaded(true) // ← Bloquea futuras actualizaciones
-}
-```
-
-### **🔄 Flujo Completo de Sincronización**
-
-#### **Escenario A: Chat con Cache (Navegación rápida)**
-
-```
-Usuario navega a chat UUID-123
-     ↓
-loadMessages("UUID-123")
-     ↓
-Cache hit: [msg1, msg2, msg3] ← Datos del cache
-     ↓
-setLocalMessages([msg1, msg2, msg3]) ← Carga instantánea ⚡
-     ↓
-messagesLoaded = true ← Bloquea React Query
-     ↓
-React Query enabled = false ← No se ejecuta
-     ↓
-Usuario escribe: "Hola"
-     ↓
-addMessage(userMsg) → [msg1, msg2, msg3, userMsg] ← Actualización local
-     ↓
-updateCache([msg1, msg2, msg3, userMsg]) ← Sincroniza cache
-```
-
-#### **Escenario B: Chat sin Cache (Primera visita)**
-
-```
-Usuario navega a chat UUID-456
-     ↓
-loadMessages("UUID-456")
-     ↓
-Cache miss: null ← No hay datos cacheados
-     ↓
-messagesLoaded = false ← Permitir carga desde servidor
-     ↓
-React Query enabled = true ← Query se activa
-     ↓
-Servidor responde: [msgA, msgB] ← Datos del servidor
-     ↓
-setLocalMessages([msgA, msgB]) ← Solo si !messagesLoaded
-     ↓
-messagesLoaded = true ← Bloquea nuevas cargas
-     ↓
-updateCache([msgA, msgB]) ← Cache para próximas visitas
-     ↓
-Usuario escribe: "Mundo"
-     ↓
-addMessage(userMsg) → [msgA, msgB, userMsg] ← Estado + cache actualizados
-```
-
-#### **Escenario C: Streaming durante Carga**
-
-```
-loadMessages("UUID-789") iniciado
-     ↓
-React Query cargando... ← Tomará 200ms
-     ↓
-Usuario escribe "Test" ← Mientras tanto...
-     ↓
-addMessage(userMsg) → [userMsg] ← Se agrega al estado vacío
-     ↓
-React Query responde: [msgX, msgY] ← Llegan datos del servidor
-     ↓
-messagesLoaded = false ← Todavía no habíamos cargado
-     ↓
-setLocalMessages([msgX, msgY]) ← ❌ SOBRESCRIBE estado local!
-     ↓
-¡Mensaje "Test" se pierde! 💥
-```
-
-**❌ Problema identificado:** Si el usuario interactúa durante la carga inicial.
-
-**✅ Solución mejorada:** Preservar mensajes locales durante carga inicial.
-
-### **🛡️ Protección Anti-Race Conditions**
-
-La implementación actual maneja la mayoría de casos, pero para casos edge podríamos mejorar:
-
-```typescript
-// Mejora propuesta (no implementada aún):
-if (!messagesLoaded) {
-  // Preservar mensajes que el usuario agregó durante carga
-  const newMessages = localMessages.length > 0 ? [...messages, ...localMessages] : messages
-
-  setLocalMessages(newMessages)
-  setMessagesLoaded(true)
-}
-```
-
-### **🎯 Puntos Clave de la Sincronización**
-
-| Momento                | Estado `messagesLoaded` | React Query        | Comportamiento             |
-| ---------------------- | ----------------------- | ------------------ | -------------------------- |
-| **Navegación inicial** | `false`                 | `enabled: true`    | Carga desde servidor/cache |
-| **Después de cargar**  | `true`                  | `enabled: false`   | Solo estado local          |
-| **Cambio de chat**     | Reset a `false`         | Se reactiva        | Nueva carga                |
-| **Actualizaciones RT** | Permanece `true`        | Permanece disabled | Solo estado local          |
-
-**Resultado:** Separación perfecta entre carga inicial (React Query) y actualizaciones dinámicas (estado local), eliminando conflictos de sincronización.
-
-## 🛠️ Optimizaciones Implementadas
-
-### **Eliminación de Duplicación:**
-
-- ✅ Helper `updateCache()` centraliza lógica de cache
-- ✅ `addMessage()` y `addStreamingMessage()` reutilizan lógica
-- ✅ Logging consistente en todas las operaciones
-
-### **Control de Condiciones de Carrera:**
-
-- ✅ `messagesLoaded` previene múltiples cargas
-- ✅ Query habilitada condicionalmente: `enabled: !!currentChatUuid && !messagesLoaded`
-- ✅ Cache se actualiza pasivamente sin interferir
-
-### **Gestión de Memoria:**
-
-- ✅ `gcTime: 1 hora` para limpiar cache automáticamente
-- ✅ `invalidateMessages()` para limpiar manualmente
-- ✅ Estados se resetean correctamente al cambiar chats
-
-## 💡 Ventajas de la Implementación
-
-| Característica             | Beneficio                                           |
-| -------------------------- | --------------------------------------------------- |
-| **Navegación Instantánea** | Cache permite cambiar entre chats sin delay         |
-| **Streaming Fluido**       | Estado local no interfiere con actualizaciones RT   |
-| **Menos Llamadas API**     | Cache de 5 minutos reduce requests innecesarios     |
-| **UX Optimizada**          | Actualizaciones optimistas para respuesta inmediata |
-| **Debugging Mejorado**     | React Query DevTools + logs centralizados           |
-| **Gestión de Errores**     | Retry automático y handling robusto                 |
-
-## 🔧 API del Hook
+### 💾 **useChatMessages - Estado Híbrido**
 
 ```typescript
 const {
   localMessages, // Mensajes del chat actual
-  streamingMessage, // Mensaje en streaming
-  isChangingChat, // Estado de carga/cambio
-  loadMessages, // Cargar mensajes de un chat
-  clearMessages, // Limpiar todos los mensajes
+  streamingMessage, // Mensaje en construcción
+  isChangingChat, // Estado de transición
+  loadMessages, // Cargar chat específico
+  clearMessages, // Limpiar estado
   addMessage, // Agregar mensaje del usuario
-  addStreamingMessage, // Finalizar mensaje de streaming
-  updateStreamingMessage, // Actualizar streaming token por token
-  clearStreamingMessage, // Limpiar mensaje de streaming
-  getDisplayMessages, // Obtener mensajes para mostrar
-  invalidateMessages // Invalidar cache manualmente
+  addStreamingMessage, // Finalizar streaming
+  updateStreamingMessage, // Actualizar token por token
+  clearStreamingMessage, // Limpiar streaming
+  getDisplayMessages, // Mensajes para UI
+  invalidateMessages // Invalidar cache
 } = useChatMessages()
 ```
 
-## 🎯 Casos de Uso
+**Gestión inteligente de actualizaciones:**
 
-- ✅ **Chat en tiempo real** con streaming de respuestas
-- ✅ **Navegación rápida** entre múltiples conversaciones
-- ✅ **Offline-first** con cache inteligente
-- ✅ **Optimistic updates** para mejor UX
-- ✅ **Sincronización automática** entre pestañas (via React Query)
+```typescript
+const updateStreamingMessage = useCallback((token: string, shouldReplace = false) => {
+  if (shouldReplace) {
+    setStreamingMessage(token) // Reemplazar mensaje completo
+  } else {
+    setStreamingMessage((prev) => prev + token) // Concatenar token
+  }
+}, [])
+```
+
+## 🔄 Flujos de Funcionamiento
+
+### **🎯 Modo REST (Switch OFF)**
+
+```
+1. Usuario escribe: "Hola mundo"
+     ↓
+2. addMessage(userMessage) → Estado local
+     ↓
+3. sendMessage('generate', content, uuid)
+     ↓
+4. Socket.emit('generate', {content, chat_uuid})
+     ↓
+5. Socket.on('generated', response)
+     ↓
+6. onMessageGenerated(aiMessage) → Estado final
+```
+
+### **⚡ Modo Streaming (Switch ON)**
+
+```
+1. Usuario escribe: "Explica IA"
+     ↓
+2. addMessage(userMessage) → Estado local
+     ↓
+3. sendStreamingMessage('generate.streaming', content, uuid)
+     ↓
+4. Socket.emit('generate.streaming', {content, chat_uuid})
+     ↓
+5. Socket.on('stream.token', tokens...)
+     ↓
+   ┌─ Token 1: {token: "La", full_message: "La"}
+   ├─ Token 2: {token: "IA", full_message: "La IA"}
+   ├─ Token 3: {token: "es", full_message: "La IA es"}
+   └─ Final:  {is_complete: true, full_message: "La IA es..."}
+     ↓
+6. onMessageGenerated(finalMessage) → Estado final
+```
+
+## 📡 Protocolo de Streaming
+
+### **Eventos Socket.IO**
+
+#### **📤 Cliente → Servidor**
+
+```typescript
+// REST
+socket.emit('generate', {
+  content: 'Hola',
+  chat_uuid: 'uuid-123'
+})
+
+// Streaming
+socket.emit('generate.streaming', {
+  content: 'Hola',
+  chat_uuid: 'uuid-123'
+})
+```
+
+#### **📥 Servidor → Cliente**
+
+**REST Response:**
+
+```typescript
+socket.on('generated', {
+  id: 1,
+  sender_type: 'SYSTEM',
+  content: 'Hola, ¿cómo puedo ayudarte?',
+  chat_uuid: 'uuid-123'
+})
+```
+
+**Streaming Tokens:**
+
+```typescript
+// Token progresivo
+socket.on('stream.token', {
+  chat_uuid: 'uuid-123',
+  token: 'Hola',
+  is_complete: false,
+  full_message: 'Hola'
+})
+
+// Token final
+socket.on('stream.token', {
+  chat_uuid: 'uuid-123',
+  token: '',
+  is_complete: true,
+  full_message: 'Hola, ¿cómo puedo ayudarte?'
+})
+
+// Finalización
+socket.on('stream.end')
+```
+
+## 🎛️ Control de Switch
+
+### **Implementación del Switch**
+
+```typescript
+// ChatLayout.tsx - Estado global
+const [isStreaming, setIsStreaming] = useState(false)
+
+// SidebarContainerHeader.tsx - UI Control
+<Switch
+  size='sm'
+  isSelected={isStreaming}
+  onValueChange={setIsStreaming}
+  classNames={{
+    wrapper: "group-data-[selected=true]:bg-primary"
+  }}
+/>
+
+// ChatPage.tsx - Lógica condicional
+if (isStreaming) {
+  sendStreamingMessage(prompt, chat_uuid)
+} else {
+  sendMessage(prompt, chat_uuid)
+}
+```
+
+## 🔄 Navegación Automática para Nuevos Chats
+
+### **Problema Original**
+
+- Chat nuevo (sin UUID) → Usuario envía mensaje → Servidor genera UUID
+- **REST**: Navegación funcionaba ✅
+- **Streaming**: No navegaba ❌
+
+### **Solución Implementada**
+
+```typescript
+// Helper centralizado en useChatSocket
+const handleNewChatNavigation = useCallback(
+  (newChatUuid: string) => {
+    logger('navigation', `Nuevo chat creado, navegando a: ${newChatUuid}`)
+    navigatingRef.current = true
+    navigate(`/chat/conversation/${newChatUuid}`)
+    queryClient.invalidateQueries({ queryKey: ['chats'] })
+  },
+  [navigate, queryClient, logger]
+)
+
+// Usado en ambos eventos
+socket.on('generated', (data) => {
+  if (data.chat_uuid && !chatUuid) {
+    handleNewChatNavigation(data.chat_uuid) // REST
+  }
+})
+
+socket.on('stream.token', (token) => {
+  if (token.chat_uuid && !chatUuid) {
+    handleNewChatNavigation(token.chat_uuid) // Streaming
+  }
+})
+```
+
+## 🐛 Solución de Espacios en Streaming
+
+### **Problema Identificado**
+
+```
+Token 1: "Hola"     → Display: "Hola"
+Token 2: "mundo"    → Display: "Holamundo" ❌
+Final:   "Hola mundo" → Display: "Hola mundo" ✅
+```
+
+### **Solución: full_message**
+
+```typescript
+// Antes (concatenación simple)
+setStreamingMessage((prev) => prev + token) // ❌ Sin espacios
+
+// Después (reemplazo inteligente)
+if (streamingToken.full_message) {
+  onStreamingToken(streamingToken.full_message, true) // ✅ Con espacios
+} else {
+  onStreamingToken(streamingToken.token, false)
+}
+```
+
+## 🚀 Optimizaciones Implementadas
+
+### **1. Eliminación de Código Duplicado**
+
+**Antes:**
+
+```typescript
+// 🔴 Duplicación en navegación
+if (data.chat_uuid && !chatUuid) {
+  logger('navigation', `Nuevo chat creado, navegando a: ${data.chat_uuid}`)
+  navigatingRef.current = true
+  navigate(`/chat/conversation/${data.chat_uuid}`)
+  queryClient.invalidateQueries({ queryKey: ['chats'] })
+}
+// Se repetía en 'generated' y 'stream.token'
+```
+
+**Después:**
+
+```typescript
+// ✅ Helper centralizado
+const handleNewChatNavigation = useCallback(
+  (newChatUuid: string) => {
+    logger('navigation', `Nuevo chat creado, navegando a: ${newChatUuid}`)
+    navigatingRef.current = true
+    navigate(`/chat/conversation/${newChatUuid}`)
+    queryClient.invalidateQueries({ queryKey: ['chats'] })
+  },
+  [navigate, queryClient, logger]
+)
+```
+
+### **2. Centralización de Envío**
+
+**Antes:**
+
+```typescript
+// 🔴 Dos funciones casi idénticas
+const sendMessage = (content, uuid) => {
+  /* REST logic */
+}
+const sendStreamingMessage = (content, uuid) => {
+  /* Streaming logic */
+}
+```
+
+**Después:**
+
+```typescript
+// ✅ Helper compartido
+const sendSocketMessage = useCallback((event, content, uuid) => {
+  const mode = event === 'generate.streaming' ? 'STREAMING' : 'REST'
+  socket.emit(event, { content, chat_uuid: uuid || '' }, callback)
+}, [])
+
+const sendMessage = useCallback(
+  (content, uuid) => {
+    sendSocketMessage('generate', content, uuid)
+  },
+  [sendSocketMessage]
+)
+```
+
+### **3. Gestión Mejorada de Estados**
+
+```typescript
+// Helper para finalizar mensajes
+const handleCompleteMessage = useCallback(
+  (content: string) => {
+    onClearStreaming()
+    onMessageGenerated(createAIMessage(content))
+    onStopSending()
+  },
+  [onClearStreaming, onMessageGenerated, onStopSending]
+)
+```
+
+## 📊 Comparación: Antes vs Después
+
+| Aspecto                  | Antes                   | Después               |
+| ------------------------ | ----------------------- | --------------------- |
+| **Líneas de código**     | ~210                    | ~150                  |
+| **Duplicación**          | 3x navegación, 2x envío | Helpers centralizados |
+| **Mantenibilidad**       | ❌ Difícil              | ✅ Fácil              |
+| **Espacios streaming**   | ❌ Sin espacios         | ✅ Con espacios       |
+| **Navegación streaming** | ❌ No funcionaba        | ✅ Funciona           |
+| **Debugging**            | ❌ Logs dispersos       | ✅ Logs centralizados |
+
+## 🎯 Testing del Sistema
+
+### **Test Manual con DevTools**
+
+```javascript
+// En browser console
+const socket = io('http://localhost:3000/messages')
+
+// Test REST
+socket.emit('generate', {
+  content: 'Hola',
+  chat_uuid: 'test-123'
+})
+
+// Test Streaming
+socket.emit('generate.streaming', {
+  content: 'Explica IA',
+  chat_uuid: 'test-123'
+})
+
+// Listeners para debug
+socket.on('stream.token', console.log)
+socket.on('generated', console.log)
+```
+
+### **Estados Esperados**
+
+```typescript
+// Durante streaming
+{
+  localMessages: [...mensajesAnteriores, mensajeUsuario],
+  streamingMessage: "La IA es una tecnología...", // ✅ Con espacios
+  isSending: true,
+  isChangingChat: false
+}
+
+// Streaming completado
+{
+  localMessages: [...mensajesAnteriores, mensajeUsuario, mensajeIA],
+  streamingMessage: "", // ✅ Limpio
+  isSending: false,
+  isChangingChat: false
+}
+```
+
+## 🔮 Beneficios de la Implementación
+
+### **✨ Para el Usuario**
+
+- **Respuesta instantánea**: Modo streaming muestra progreso
+- **Flexibilidad**: Puede elegir entre modos según preferencia
+- **UX fluida**: Navegación sin delays, actualizaciones optimistas
+
+### **🛠️ Para el Desarrollador**
+
+- **Código limpio**: Helpers centralizados, menos duplicación
+- **Debugging fácil**: Logs consistentes y estructurados
+- **Escalabilidad**: Arquitectura preparada para nuevas funciones
+- **Mantenimiento**: Separación clara de responsabilidades
+
+### **🚀 Para el Sistema**
+
+- **Performance**: Cache inteligente reduce llamadas API
+- **Resilencia**: Manejo robusto de errores y reconexión
+- **Eficiencia**: Socket.IO persistente, menos overhead de conexión
+
+## 📝 Próximos Pasos
+
+1. **📈 Métricas**: Implementar tracking de uso REST vs Streaming
+2. **🎨 UX**: Mejorar indicadores visuales durante streaming
+3. **🔧 Config**: Hacer configurable el timeout de streaming
+4. **🧪 Tests**: Añadir tests unitarios y de integración
+5. **📱 Mobile**: Optimizar experiencia en dispositivos móviles
 
 ---
 
-**Resultado:** Un sistema de chat robusto que combina lo mejor de ambos mundos: la potencia del cacheo de React Query con la flexibilidad del estado local para actualizaciones dinámicas.
+_Esta implementación representa un sistema de chat moderno, escalable y optimizado que combina lo mejor de ambos mundos: la inmediatez del streaming y la robustez de REST._

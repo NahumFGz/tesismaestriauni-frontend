@@ -106,8 +106,12 @@ export const useChatMessages = () => {
     [updateCache]
   )
 
-  const updateStreamingMessage = useCallback((token: string) => {
-    setStreamingMessage((prev) => prev + token)
+  const updateStreamingMessage = useCallback((token: string, shouldReplace = false) => {
+    if (shouldReplace) {
+      setStreamingMessage(token)
+    } else {
+      setStreamingMessage((prev) => prev + token)
+    }
   }, [])
 
   const clearStreamingMessage = useCallback(() => {

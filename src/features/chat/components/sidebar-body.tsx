@@ -84,21 +84,6 @@ export default function SidebarBody() {
             title='Tools'
           >
             <ListboxItem
-              key='attendance'
-              onPress={() => navigate('/attendance')}
-              className={`h-[36px] px-[12px] py-[6px] ${
-                location.pathname === '/attendance'
-                  ? 'bg-content3 text-content1-foreground'
-                  : 'text-default-500'
-              }`}
-              startContent={
-                <Icon className='text-default-400' icon='solar:calendar-mark-linear' width={20} />
-              }
-            >
-              Attendance
-            </ListboxItem>
-
-            <ListboxItem
               key='budget'
               onPress={() => navigate('/budget')}
               className={`h-[36px] px-[12px] py-[6px] ${
@@ -111,6 +96,21 @@ export default function SidebarBody() {
               }
             >
               Budget
+            </ListboxItem>
+
+            <ListboxItem
+              key='attendance'
+              onPress={() => navigate('/attendance')}
+              className={`h-[36px] px-[12px] py-[6px] ${
+                location.pathname === '/attendance'
+                  ? 'bg-content3 text-content1-foreground'
+                  : 'text-default-500'
+              }`}
+              startContent={
+                <Icon className='text-default-400' icon='solar:calendar-mark-linear' width={20} />
+              }
+            >
+              Attendance
             </ListboxItem>
 
             <ListboxItem

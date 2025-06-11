@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Input,
   Table,
@@ -17,25 +18,57 @@ import { Icon } from '@iconify/react'
 import { getBudget, type BudgetType } from '../../../services/budget'
 
 export function BudgetPage() {
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [take, setTake] = useState(30)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
+  // Valores derivados directamente de la URL para la query
+  const currentPage = Number(searchParams.get('page')) || 1
+  const currentTake = Number(searchParams.get('take')) || 30
+  const currentSearch = searchParams.get('search') || ''
+
+  // Estado local solo para el input de búsqueda (para mostrar lo que el usuario está escribiendo)
+  const [search, setSearch] = useState(currentSearch)
 
   // Ref para mantener los metadatos de paginación durante loading
   const lastMetaRef = useRef<{ totalPages: number } | null>(null)
 
+  // Función para actualizar la URL con los parámetros actuales
+  const updateURL = (newSearch: string, newPage: number, newTake: number) => {
+    const params = new URLSearchParams()
+
+    if (newSearch.trim()) {
+      params.set('search', newSearch.trim())
+    }
+    if (newPage > 1) {
+      params.set('page', newPage.toString())
+    }
+    if (newTake !== 30) {
+      params.set('take', newTake.toString())
+    }
+
+    navigate(`/budget${params.toString() ? `?${params.toString()}` : ''}`, { replace: true })
+  }
+
   // Debounce effect for search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-      setPage(1) // Reset to first page when searching
-      // Resetear metadatos cuando cambia el search
-      lastMetaRef.current = null
-    }, 300) // 300ms delay
+      if (search !== currentSearch) {
+        lastMetaRef.current = null // Resetear metadatos cuando cambia el search
+        updateURL(search, 1, currentTake) // Reset to first page when searching
+      }
+    }, 300)
 
     return () => clearTimeout(timer)
-  }, [search])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, currentSearch, currentTake])
+
+  // Sincronizar search local con URL cuando navega el usuario
+  useEffect(() => {
+    if (currentSearch !== search) {
+      setSearch(currentSearch)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSearch])
 
   const {
     data: budgetData,
@@ -43,8 +76,8 @@ export function BudgetPage() {
     isError,
     error
   } = useQuery({
-    queryKey: ['budget', page, take, debouncedSearch],
-    queryFn: () => getBudget({ page, take, search: debouncedSearch }),
+    queryKey: ['budget', currentPage, currentTake, currentSearch],
+    queryFn: () => getBudget({ page: currentPage, take: currentTake, search: currentSearch }),
     retry: 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -56,15 +89,6 @@ export function BudgetPage() {
   // Actualizar los metadatos cuando tengamos datos
   if (budgetData?.meta) {
     lastMetaRef.current = { totalPages: budgetData.meta.totalPages }
-  }
-
-  const handleSearch = (value: string) => {
-    setSearch(value)
-  }
-
-  const handleTakeChange = (value: string) => {
-    setTake(Number(value))
-    setPage(1) // Reset to first page when changing page size
   }
 
   const formatNumber = (amount: string) => {
@@ -88,7 +112,7 @@ export function BudgetPage() {
             isClearable
             placeholder='Buscar por RUC o nombre de entidad'
             value={search}
-            onValueChange={handleSearch}
+            onValueChange={setSearch}
             startContent={
               <Icon icon='solar:magnifer-linear' className='text-default-400' width={20} />
             }
@@ -99,10 +123,10 @@ export function BudgetPage() {
         <div className='flex items-center gap-2 whitespace-nowrap'>
           <span className='text-small text-default-600'>Elementos:</span>
           <Select
-            selectedKeys={[take.toString()]}
+            selectedKeys={[currentTake.toString()]}
             onSelectionChange={(keys) => {
-              const selectedValue = Array.from(keys)[0] as string
-              handleTakeChange(selectedValue)
+              const newTake = Number(Array.from(keys)[0])
+              updateURL(currentSearch, 1, newTake)
             }}
             variant='bordered'
             size='md'
@@ -171,8 +195,8 @@ export function BudgetPage() {
         <div className='flex justify-center'>
           <Pagination
             total={lastMetaRef.current.totalPages}
-            page={page}
-            onChange={setPage}
+            page={currentPage}
+            onChange={(newPage) => updateURL(currentSearch, newPage, currentTake)}
             showControls
             showShadow
             color='primary'

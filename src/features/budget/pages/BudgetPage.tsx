@@ -57,7 +57,7 @@ export function BudgetPage() {
         lastMetaRef.current = null // Resetear metadatos cuando cambia el search
         updateURL(search, 1, currentTake) // Reset to first page when searching
       }
-    }, 300)
+    }, 200)
 
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps

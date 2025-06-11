@@ -12,7 +12,8 @@ import {
   Pagination,
   Spinner,
   Select,
-  SelectItem
+  SelectItem,
+  Button
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { getBudget, type BudgetType } from '../../../services/budget'
@@ -161,6 +162,9 @@ export function BudgetPage() {
             <TableColumn key='monto_total' align='end' width={200}>
               MONTO TOTAL (S/)
             </TableColumn>
+            <TableColumn key='contratos' align='center' width={150}>
+              VER CONTRATOS
+            </TableColumn>
           </TableHeader>
           <TableBody
             isLoading={isLoading}
@@ -183,6 +187,24 @@ export function BudgetPage() {
                 </TableCell>
                 <TableCell>
                   <div className='text-right'>{formatNumber(item.monto_total)}</div>
+                </TableCell>
+                <TableCell>
+                  <div className='flex justify-center'>
+                    <Button
+                      isIconOnly
+                      size='sm'
+                      variant='light'
+                      onPress={() =>
+                        window.open(
+                          `https://apps.osce.gob.pe/perfilprov-ui/ficha/${item.ruc}/contratos`,
+                          '_blank'
+                        )
+                      }
+                      className='text-primary'
+                    >
+                      <Icon icon='solar:eye-linear' width={18} />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

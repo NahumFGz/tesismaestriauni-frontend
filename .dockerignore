@@ -1,0 +1,23 @@
+# Ignorar dependencias (se instalarán en el contenedor)
+node_modules
+
+# Ignorar archivos de desarrollo y testing
+.vite
+.vscode
+test
+coverage
+
+# Ignorar archivos de configuración y control de versiones
+*.log
+Dockerfile
+.dockerignore
+.git
+.gitignore
+README.md
+
+# Ignorar el directorio dist (se generará en el build)
+dist
+
+# Ignorar archivos temporales
+*.tmp
+*.temp

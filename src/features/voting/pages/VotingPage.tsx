@@ -30,6 +30,10 @@ export function VotingPage() {
   // Estado local solo para el input de búsqueda (para mostrar lo que el usuario está escribiendo)
   const [search, setSearch] = useState(currentSearch)
 
+  // Ref para controlar si el cambio viene del usuario o de la URL
+  const isUserTypingRef = useRef(false)
+  const debounceTimerRef = useRef<number | null>(null)
+
   // Ref para mantener los metadatos de paginación durante loading
   const lastMetaRef = useRef<{ totalPages: number } | null>(null)
 
@@ -50,26 +54,39 @@ export function VotingPage() {
     navigate(`/voting${params.toString() ? `?${params.toString()}` : ''}`, { replace: true })
   }
 
-  // Debounce effect for search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (search !== currentSearch) {
-        lastMetaRef.current = null // Resetear metadatos cuando cambia el search
-        updateURL(search, 1, currentTake) // Reset to first page when searching
-      }
-    }, 200)
+  // Manejar cambios en el input de búsqueda
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    isUserTypingRef.current = true
 
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, currentSearch, currentTake])
+    // Limpiar el timer anterior
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current)
+    }
 
-  // Sincronizar search local con URL cuando navega el usuario
+    // Configurar nuevo timer
+    debounceTimerRef.current = window.setTimeout(() => {
+      lastMetaRef.current = null // Resetear metadatos cuando cambia el search
+      updateURL(value, 1, currentTake) // Reset to first page when searching
+      isUserTypingRef.current = false
+    }, 300)
+  }
+
+  // Sincronizar search local con URL solo cuando no está escribiendo el usuario
   useEffect(() => {
-    if (currentSearch !== search) {
+    if (!isUserTypingRef.current && currentSearch !== search) {
       setSearch(currentSearch)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSearch])
+  }, [currentSearch, search])
+
+  // Limpiar timer al desmontar
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
 
   const {
     data: votingData,
@@ -114,7 +131,7 @@ export function VotingPage() {
             isClearable
             placeholder='Buscar por fecha (ej: 2022-01-31) o asunto'
             value={search}
-            onValueChange={setSearch}
+            onValueChange={handleSearchChange}
             startContent={
               <Icon icon='solar:magnifer-linear' className='text-default-400' width={20} />
             }

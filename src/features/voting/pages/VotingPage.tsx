@@ -27,22 +27,24 @@ export function VotingPage() {
   const currentTake = Number(searchParams.get('take')) || 10
   const currentSearch = searchParams.get('search') || ''
 
-  // Estado local solo para el input de búsqueda (para mostrar lo que el usuario está escribiendo)
-  const [search, setSearch] = useState(currentSearch)
+  // Estado local independiente para el input de búsqueda (mantiene espacios mientras el usuario escribe)
+  const [searchInput, setSearchInput] = useState(currentSearch)
 
-  // Ref para controlar si el cambio viene del usuario o de la URL
-  const isUserTypingRef = useRef(false)
+  // Ref para el timer de debounce
   const debounceTimerRef = useRef<number | null>(null)
 
   // Ref para mantener los metadatos de paginación durante loading
   const lastMetaRef = useRef<{ totalPages: number } | null>(null)
 
   // Función para actualizar la URL con los parámetros actuales
-  const updateURL = (newSearch: string, newPage: number, newTake: number) => {
+  const updateURL = (searchValue: string, newPage: number, newTake: number) => {
     const params = new URLSearchParams()
 
-    if (newSearch.trim()) {
-      params.set('search', newSearch.trim())
+    // Solo aplicamos trim cuando actualizamos la URL, no en el input
+    const trimmedSearch = searchValue.trim()
+
+    if (trimmedSearch) {
+      params.set('search', trimmedSearch)
     }
     if (newPage > 1) {
       params.set('page', newPage.toString())
@@ -56,28 +58,30 @@ export function VotingPage() {
 
   // Manejar cambios en el input de búsqueda
   const handleSearchChange = (value: string) => {
-    setSearch(value)
-    isUserTypingRef.current = true
+    // Actualizar el estado del input inmediatamente (sin trim)
+    setSearchInput(value)
 
     // Limpiar el timer anterior
     if (debounceTimerRef.current) {
       window.clearTimeout(debounceTimerRef.current)
     }
 
-    // Configurar nuevo timer
+    // Configurar nuevo timer para actualizar la URL
     debounceTimerRef.current = window.setTimeout(() => {
       lastMetaRef.current = null // Resetear metadatos cuando cambia el search
       updateURL(value, 1, currentTake) // Reset to first page when searching
-      isUserTypingRef.current = false
     }, 300)
   }
 
-  // Sincronizar search local con URL solo cuando no está escribiendo el usuario
+  // Sincronizar searchInput solo cuando la URL cambia desde fuera (ej: navegación)
   useEffect(() => {
-    if (!isUserTypingRef.current && currentSearch !== search) {
-      setSearch(currentSearch)
+    // Solo sincronizar si el valor trimmed es diferente
+    if (currentSearch !== searchInput.trim()) {
+      setSearchInput(currentSearch)
     }
-  }, [currentSearch, search])
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSearch])
 
   // Limpiar timer al desmontar
   useEffect(() => {
@@ -130,7 +134,7 @@ export function VotingPage() {
           <Input
             isClearable
             placeholder='Buscar por fecha (ej: 2022-01-31) o asunto'
-            value={search}
+            value={searchInput}
             onValueChange={handleSearchChange}
             startContent={
               <Icon icon='solar:magnifer-linear' className='text-default-400' width={20} />

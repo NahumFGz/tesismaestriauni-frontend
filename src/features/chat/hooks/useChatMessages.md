@@ -88,9 +88,31 @@ const {
 } = useChatMessages()
 ```
 
-**Gestión inteligente de actualizaciones:**
+**Gestión inteligente de navegación y cache:**
 
 ```typescript
+const loadMessages = useCallback(
+  async (uuid: string) => {
+    if (!uuid || currentChatUuid === uuid) return // ✅ Evita recargas innecesarias
+
+    logger('messages', `Iniciando carga para chat: ${uuid}`)
+    setIsChangingChat(true)
+    setCurrentChatUuid(uuid)
+
+    // Cache inteligente con React Query
+    const cachedMessages = queryClient.getQueryData(['chat-messages', uuid])
+    if (cachedMessages && cachedMessages.length > 0) {
+      logger('messages', `Usando mensajes cacheados: ${cachedMessages.length}`)
+      setLocalMessages(cachedMessages)
+      setIsChangingChat(false)
+    } else {
+      // React Query maneja automáticamente el fetch cuando no hay cache
+      setLocalMessages([])
+    }
+  },
+  [logger, queryClient, currentChatUuid]
+)
+
 const updateStreamingMessage = useCallback((token: string, shouldReplace = false) => {
   if (shouldReplace) {
     setStreamingMessage(token) // Reemplazar mensaje completo
@@ -257,6 +279,71 @@ socket.on('stream.token', (token) => {
 })
 ```
 
+## 🔄 Solución de Navegación y Cache
+
+### **Problema Crítico: Mensajes Desaparecen**
+
+**Escenario:**
+
+1. Usuario está en `/chat/conversation/uuid-123` con mensajes cargados ✅
+2. Hace clic en "New Chat" → `/chat/conversation` (se limpian mensajes) ✅
+3. Regresa a `/chat/conversation/uuid-123` → "No hay mensajes en esta conversación" ❌
+
+### **Causa Raíz**
+
+El problema estaba en la gestión del estado `messagesLoaded` que impedía recargar mensajes:
+
+```typescript
+// ❌ Configuración problemática (ANTES)
+const [messagesLoaded, setMessagesLoaded] = useState(false)
+
+const { isLoading } = useQuery({
+  enabled: !!currentChatUuid && !messagesLoaded // ❌ Impide recargas
+  // ...
+})
+```
+
+### **Solución Implementada**
+
+```typescript
+// ✅ Configuración optimizada (DESPUÉS)
+const loadMessages = useCallback(
+  async (uuid: string) => {
+    if (!uuid || currentChatUuid === uuid) return // Previene recargas duplicadas
+
+    setIsChangingChat(true)
+    setCurrentChatUuid(uuid) // Dispara automáticamente el useQuery
+
+    // Cache inteligente primero
+    const cachedMessages = queryClient.getQueryData(['chat-messages', uuid])
+    if (cachedMessages && cachedMessages.length > 0) {
+      setLocalMessages(cachedMessages)
+      setIsChangingChat(false)
+      return // No necesita fetch del servidor
+    }
+
+    // Si no hay cache, useQuery hace fetch automáticamente
+    setLocalMessages([])
+  },
+  [logger, queryClient, currentChatUuid]
+)
+
+const { isLoading } = useQuery({
+  enabled: !!currentChatUuid // ✅ Simple y efectivo
+  // React Query maneja cache y fetch automáticamente
+})
+```
+
+### **Beneficios de la Solución**
+
+| Aspecto         | Antes                      | Después                     |
+| --------------- | -------------------------- | --------------------------- |
+| **Navegación**  | ❌ Mensajes desaparecen    | ✅ Mensajes persistentes    |
+| **Performance** | ❌ Requests duplicados     | ✅ Un solo request por chat |
+| **Cache**       | ❌ Cache ignorado          | ✅ Cache respetado (5 min)  |
+| **UX**          | ❌ Loading innecesario     | ✅ Instantáneo con cache    |
+| **Complejidad** | 🔴 Estado `messagesLoaded` | 🟢 Lógica simplificada      |
+
 ## 🐛 Solución de Espacios en Streaming
 
 ### **Problema Identificado**
@@ -360,14 +447,18 @@ const handleCompleteMessage = useCallback(
 
 ## 📊 Comparación: Antes vs Después
 
-| Aspecto                  | Antes                   | Después               |
-| ------------------------ | ----------------------- | --------------------- |
-| **Líneas de código**     | ~210                    | ~150                  |
-| **Duplicación**          | 3x navegación, 2x envío | Helpers centralizados |
-| **Mantenibilidad**       | ❌ Difícil              | ✅ Fácil              |
-| **Espacios streaming**   | ❌ Sin espacios         | ✅ Con espacios       |
-| **Navegación streaming** | ❌ No funcionaba        | ✅ Funciona           |
-| **Debugging**            | ❌ Logs dispersos       | ✅ Logs centralizados |
+| Aspecto                    | Antes                   | Después               |
+| -------------------------- | ----------------------- | --------------------- |
+| **Líneas de código**       | ~210                    | ~146                  |
+| **Duplicación**            | 3x navegación, 2x envío | Helpers centralizados |
+| **Navegación entre chats** | ❌ Mensajes desaparecen | ✅ Cache persistente  |
+| **Performance**            | ❌ Requests duplicados  | ✅ 1 request por chat |
+| **Mantenibilidad**         | ❌ Difícil              | ✅ Fácil              |
+| **Espacios streaming**     | ❌ Sin espacios         | ✅ Con espacios       |
+| **Navegación streaming**   | ❌ No funcionaba        | ✅ Funciona           |
+| **Debugging**              | ❌ Logs dispersos       | ✅ Logs centralizados |
+| **Estado messagesLoaded**  | 🔴 Complicaba lógica    | 🟢 Eliminado          |
+| **Cache React Query**      | ❌ Subutilizado         | ✅ Optimizado         |
 
 ## 🎯 Testing del Sistema
 
@@ -440,8 +531,10 @@ socket.on('generated', console.log)
 1. **📈 Métricas**: Implementar tracking de uso REST vs Streaming
 2. **🎨 UX**: Mejorar indicadores visuales durante streaming
 3. **🔧 Config**: Hacer configurable el timeout de streaming
-4. **🧪 Tests**: Añadir tests unitarios y de integración
+4. **🧪 Tests**: Añadir tests unitarios y de integración para navegación entre chats
 5. **📱 Mobile**: Optimizar experiencia en dispositivos móviles
+6. **🔍 Monitoring**: Añadir métricas de performance del cache
+7. **⚡ Performance**: Optimizar límites de cache y estrategias de invalidación
 
 ---
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Listbox, ListboxItem, ListboxSection, ScrollShadow, Button, Spinner } from '@heroui/react'
 import { Icon } from '@iconify/react/dist/iconify.js'
 import { SidebarRecentChatOptions } from './chat-options'
@@ -8,20 +8,23 @@ import { AvatarDropdown } from './avatar-dropdown'
 import { Loading } from '../../../components/ui/Loading'
 import { getChats, type ChatType } from '../../../services/chat'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function SidebarBody() {
   const navigate = useNavigate()
   const { chat_uuid } = useParams()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const [pagination, setPagination] = useState({ page: 1, take: 10 })
   const [accumulatedChats, setAccumulatedChats] = useState<ChatType[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
+  const isFirstLoad = useRef(true)
 
   const {
     data: chats,
     isLoading,
-    isError
+    isError,
+    dataUpdatedAt
   } = useQuery({
     queryKey: ['chats', pagination.page, pagination.take],
     queryFn: () => getChats({ page: pagination.page, take: pagination.take }),
@@ -33,24 +36,60 @@ export default function SidebarBody() {
     gcTime: 1000 * 60 * 60
   })
 
+  // Efecto para manejar los chats cuando llegan nuevos datos o se invalidan
   useEffect(() => {
-    //TODO: Revisar cuando se haya implementado la metadata de la paginación
     if (chats && !isLoading) {
-      setAccumulatedChats((prevChats) => {
-        const existingIds = new Set(prevChats.map((chat) => chat.chat_uuid))
-        const newChats = chats.filter((chat) => !existingIds.has(chat.chat_uuid))
+      // Si es la primera página, resetear completamente el estado acumulado
+      if (pagination.page === 1) {
+        console.log(
+          '[SidebarBody] Página 1 cargada/actualizada, reseteando chats acumulados:',
+          chats.length
+        )
+        setAccumulatedChats(
+          chats.sort((a, b) => {
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          })
+        )
+        isFirstLoad.current = false
+      } else {
+        // Para páginas siguientes, acumular los chats nuevos
+        setAccumulatedChats((prevChats) => {
+          const existingIds = new Set(prevChats.map((chat) => chat.chat_uuid))
+          const newChats = chats.filter((chat) => !existingIds.has(chat.chat_uuid))
 
-        // Ordenamos los chats por fecha de actualización (más recientes primero)
-        const allChats = [...prevChats, ...newChats]
-        allChats.sort((a, b) => {
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          // Ordenamos los chats por fecha de actualización (más recientes primero)
+          const allChats = [...prevChats, ...newChats]
+          allChats.sort((a, b) => {
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          })
+
+          return allChats
         })
-
-        return allChats
-      })
+      }
       setLoadingMore(false)
     }
-  }, [chats, isLoading])
+  }, [chats, isLoading, pagination.page, dataUpdatedAt])
+
+  // Efecto para resetear paginación cuando hay invalidaciones externas
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event?.type === 'updated' &&
+        event.query.queryKey[0] === 'chats' &&
+        event.query.queryKey[1] === 1 && // Solo para página 1
+        pagination.page > 1
+      ) {
+        // Solo si estamos en páginas posteriores
+        console.log(
+          '[SidebarBody] Query de chats página 1 invalidada externamente, reseteando paginación'
+        )
+        setPagination({ page: 1, take: 10 })
+        setAccumulatedChats([]) // Limpiar estado para forzar refresh
+      }
+    })
+
+    return unsubscribe
+  }, [queryClient, pagination.page])
 
   const handleLoadMore = () => {
     setLoadingMore(true)

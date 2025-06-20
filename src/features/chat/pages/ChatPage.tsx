@@ -59,6 +59,7 @@ export function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState<string>('')
   const [isChangingChat, setIsChangingChat] = useState(false)
   const [currentChatUuid, setCurrentChatUuid] = useState<string>('')
+  const [userIntendedToStay, setUserIntendedToStay] = useState(true) // Flag para rastrear intención del usuario
 
   // Referencias
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -66,6 +67,7 @@ export function ChatPage() {
   const navigatingRef = useRef(false)
   const previousChatUuidRef = useRef<string | null>(null)
   const previousPathRef = useRef<string | null>(null)
+  const lastMessageOriginRef = useRef<string | null>(null) // Rastrear origen del último mensaje
 
   // Logger
   const logger = createLogger('ChatPage')
@@ -196,15 +198,51 @@ export function ChatPage() {
     }
   }, [])
 
-  // Helper centralizado para navegación a nuevos chats
+  // Helper centralizado para navegación a nuevos chats con respeto a la intención del usuario
   const handleNewChatNavigation = useCallback(
-    (newChatUuid: string) => {
-      logger('navigation', `Nuevo chat creado, navegando a: ${newChatUuid}`)
-      navigatingRef.current = true
-      navigate(`/chat/conversation/${newChatUuid}`)
-      queryClient.invalidateQueries({ queryKey: ['chats'] })
+    (newChatUuid: string, shouldRespectUserNavigation = true) => {
+      const currentPath = location.pathname
+      const isInNewChatView = currentPath === '/chat/conversation'
+      const isInTargetChatView = currentPath === `/chat/conversation/${newChatUuid}`
+
+      logger('navigation', `Evaluando navegación a chat ${newChatUuid}:`, {
+        currentPath,
+        isInNewChatView,
+        isInTargetChatView,
+        userIntendedToStay,
+        lastMessageOrigin: lastMessageOriginRef.current,
+        shouldRespectUserNavigation
+      })
+
+      // Si el usuario cambió manualmente de vista después de enviar el mensaje, NO navegar
+      if (shouldRespectUserNavigation && !userIntendedToStay) {
+        logger(
+          'navigation',
+          `Usuario cambió de vista manualmente, solo actualizando cache para chat ${newChatUuid}`
+        )
+        queryClient.invalidateQueries({ queryKey: ['chats'] })
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', newChatUuid] })
+        return
+      }
+
+      // Solo navegar automáticamente si:
+      // 1. El usuario está en la vista de nuevo chat Y aún pretende quedarse en su flujo original, O
+      // 2. Ya está viendo el chat específico
+      if ((isInNewChatView && userIntendedToStay) || isInTargetChatView) {
+        logger('navigation', `Navegando automáticamente a chat ${newChatUuid}`)
+        navigatingRef.current = true
+        navigate(`/chat/conversation/${newChatUuid}`)
+        queryClient.invalidateQueries({ queryKey: ['chats'] })
+      } else {
+        logger(
+          'navigation',
+          `Condiciones no cumplidas para navegar a chat ${newChatUuid}, solo actualizando cache`
+        )
+        queryClient.invalidateQueries({ queryKey: ['chats'] })
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', newChatUuid] })
+      }
     },
-    [navigate, queryClient, logger]
+    [navigate, queryClient, logger, location.pathname, userIntendedToStay]
   )
 
   // Helper para finalizar mensaje completo
@@ -263,9 +301,29 @@ export function ChatPage() {
     socket.on('generated', (data: GeneratedResponse) => {
       logger('socket', 'Mensaje generado recibido:', data)
 
-      // Navegación para nuevos chats
+      // Navegación para nuevos chats - verificar intención del usuario
       if (data.chat_uuid && !chat_uuid) {
-        handleNewChatNavigation(data.chat_uuid)
+        // Solo navegar automáticamente si el mensaje se originó desde "new chat"
+        const isFromNewChat = lastMessageOriginRef.current === 'new-chat'
+
+        if (isFromNewChat) {
+          handleNewChatNavigation(data.chat_uuid)
+        } else {
+          // Mensaje de respuesta a un chat existente, pero usuario está en new chat
+          // Solo actualizar cache, no navegar
+          logger(
+            'socket',
+            `Respuesta recibida para chat ${data.chat_uuid}, pero usuario está en new chat. Solo actualizando cache.`
+          )
+          queryClient.setQueryData(
+            ['chat-messages', data.chat_uuid],
+            (oldData: FormattedMessageType[] | undefined) => {
+              const newMessage = createAIMessage(data.content)
+              return oldData ? [...oldData, newMessage] : [newMessage]
+            }
+          )
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
+        }
         return
       }
 
@@ -285,10 +343,32 @@ export function ChatPage() {
         } else if ('token' in token && 'chat_uuid' in token) {
           const streamingToken = token as StreamingTokenResponse
 
-          // Navegación para nuevos chats
+          // Navegación para nuevos chats - verificar intención del usuario
           if (streamingToken.chat_uuid && !chat_uuid) {
-            handleNewChatNavigation(streamingToken.chat_uuid)
-            return
+            const isFromNewChat = lastMessageOriginRef.current === 'new-chat'
+
+            if (isFromNewChat) {
+              handleNewChatNavigation(streamingToken.chat_uuid)
+              return
+            } else {
+              // Streaming de respuesta a un chat existente, pero usuario está en new chat
+              // Solo actualizar cache al completarse, no navegar
+              if (streamingToken.is_complete && streamingToken.full_message) {
+                logger(
+                  'socket',
+                  `Streaming completado para chat ${streamingToken.chat_uuid}, pero usuario está en new chat. Solo actualizando cache.`
+                )
+                queryClient.setQueryData(
+                  ['chat-messages', streamingToken.chat_uuid],
+                  (oldData: FormattedMessageType[] | undefined) => {
+                    const newMessage = createAIMessage(streamingToken.full_message!)
+                    return oldData ? [...oldData, newMessage] : [newMessage]
+                  }
+                )
+                queryClient.invalidateQueries({ queryKey: ['chats'] })
+              }
+              return
+            }
           }
 
           // Procesar token si corresponde al chat actual
@@ -335,6 +415,7 @@ export function ChatPage() {
       socket.off('stream.end')
       socket.off('stream.error')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     chat_uuid,
     updateStreamingMessage,
@@ -351,9 +432,30 @@ export function ChatPage() {
     }
   }, [localMessages, streamingMessage, scrollToBottom])
 
-  // Efecto para navegación - limpiar mensajes cuando cambia la ruta
+  // Efecto para navegación - detectar cambios manuales de vista
   useEffect(() => {
     const currentPath = location.pathname
+
+    // Si hay un mensaje pendiente y el usuario cambió de vista manualmente
+    if (
+      lastMessageOriginRef.current &&
+      previousPathRef.current &&
+      currentPath !== previousPathRef.current
+    ) {
+      // Detectar si el usuario se fue de la vista donde envió el mensaje
+      const messageOriginPath =
+        lastMessageOriginRef.current === 'new-chat'
+          ? '/chat/conversation'
+          : `/chat/conversation/${lastMessageOriginRef.current}`
+
+      if (currentPath !== messageOriginPath) {
+        logger(
+          'navigation',
+          `Usuario abandonó la vista original (${messageOriginPath}) y fue a ${currentPath}`
+        )
+        setUserIntendedToStay(false)
+      }
+    }
 
     // Si estamos en la ruta base de chat sin UUID, limpiar los mensajes
     if (currentPath === '/chat/conversation' && previousPathRef.current !== currentPath) {
@@ -375,6 +477,10 @@ export function ChatPage() {
       previousChatUuidRef.current = chat_uuid
       clearStreamingMessage()
 
+      // Reset de la intención del usuario para el nuevo chat
+      setUserIntendedToStay(true)
+      lastMessageOriginRef.current = null
+
       if (navigatingRef.current) {
         navigatingRef.current = false
         setIsSending(false)
@@ -385,6 +491,9 @@ export function ChatPage() {
       // Si no hay chatUuid pero antes había uno, significa que navegamos a New Chat
       logger('chat', 'Navegando desde conversación específica a New Chat')
       previousChatUuidRef.current = null
+      // Reset del estado cuando vamos a new chat
+      setUserIntendedToStay(true)
+      lastMessageOriginRef.current = null
     }
   }, [chat_uuid, loadMessages, clearStreamingMessage, logger])
 
@@ -393,6 +502,10 @@ export function ChatPage() {
     if (!prompt.trim() || isSending) return
 
     setIsSending(true)
+
+    // Rastrear el origen del mensaje para controlar navegación automática
+    lastMessageOriginRef.current = chat_uuid || 'new-chat'
+    setUserIntendedToStay(true) // Usuario intenta quedarse en el contexto actual
 
     // Agregamos el mensaje del usuario al estado local inmediatamente
     const userMessage = createUserMessage(prompt)

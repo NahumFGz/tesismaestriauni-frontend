@@ -12,38 +12,30 @@ import type { GeneratedResponse, StreamingTokenResponse } from '../../../service
 import { createLogger } from '../utils/logger'
 import { createAIMessage, createUserMessage } from '../utils/messageHelpers'
 
+// Utilidad genérica para ordenar elementos con campo updated_at en orden descendente
+export const sortByDateDesc = <T extends { updated_at: string }>(a: T, b: T) =>
+  new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+
 interface ChatContextType {
   isStreaming: boolean
   setIsStreaming: (value: boolean) => void
 }
 
 /**
- * ChatPage - Componente principal para la interfaz de chat
- *
- * Flujo de funcionamiento:
- * 1. Carga mensajes existentes cuando hay un UUID en la URL
- * 2. Permite enviar mensajes en chats nuevos o existentes
- * 3. Al enviar un mensaje sin UUID, el servidor devuelve un nuevo UUID
- * 4. Con el nuevo UUID, se navega automáticamente a la URL correspondiente
- * 5. Las respuestas se muestran en tiempo real mediante streaming
- * 6. El scroll se mantiene automáticamente en el último mensaje
- *
- * Estados principales:
- * - localMessages: Mensajes del chat actual (array)
- * - streamingMessage: Mensaje que se está recibiendo en streaming (string)
- * - isSending: Indica si se está esperando respuesta (boolean)
- * - isChangingChat: Indica cambio entre chats (boolean)
- *
- * Gestión de eventos:
- * - Socket 'generated': Recibe mensaje completo y actualiza estado
- * - Socket 'stream.token': Actualiza mensaje en streaming
- * - Socket 'stream.end': Finaliza streaming (no acción)
- * - Socket 'stream.error': Maneja errores de comunicación
- *
- * Optimizaciones:
- * - Conexión de socket persistente durante toda la sesión
- * - Referencias para prevenir re-renderizados innecesarios
- * - Gestión eficiente de cambios entre chats
+ * ChatPage
+ * -----------------------------------------------------------------------------
+ * Vista principal de conversación.
+ *  • Carga historial cuando hay chat_uuid.
+ *  • Permite crear chats nuevos desde /chat/conversation.
+ *  • Envío REST o Streaming a través de Socket.IO (conexión persistente).
+ *  • Respuestas se procesan en tiempo real sin bloquear la navegación.
+ *  • Se respeta la intención del usuario: si cambia de vista no se le redirige.
+ *  • El caché de mensajes se mantiene con React-Query y se actualiza via
+ *    appendAIMessageToCache(…). También se invalida la clave ['chats'] para que
+ *    el Sidebar se refresque.
+ *  • Scroll automático al último mensaje.
+ *  • Uso intensivo de callbacks/ref para evitar renders innecesarios.
+ * -----------------------------------------------------------------------------
  */
 export function ChatPage() {
   const { chat_uuid } = useParams()
@@ -292,6 +284,25 @@ export function ChatPage() {
     [sendSocketMessage]
   )
 
+  /**
+   * appendAIMessageToCache
+   * Helper central que agrega un mensaje de IA al cache de React Query e invalida la lista de chats.
+   * De este modo evitamos duplicar la misma lógica tanto en el listener de eventos REST como STREAMING.
+   */
+  const appendAIMessageToCache = useCallback(
+    (chatUuid: string, content: string) => {
+      queryClient.setQueryData(
+        ['chat-messages', chatUuid],
+        (old: FormattedMessageType[] | undefined) => {
+          const newMessage = createAIMessage(content)
+          return old ? [...old, newMessage] : [newMessage]
+        }
+      )
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+    },
+    [queryClient]
+  )
+
   // Efecto para configurar socket listeners
   useEffect(() => {
     const socket = socketRef.current
@@ -315,14 +326,7 @@ export function ChatPage() {
             'socket',
             `Respuesta recibida para chat ${data.chat_uuid}, pero usuario está en new chat. Solo actualizando cache.`
           )
-          queryClient.setQueryData(
-            ['chat-messages', data.chat_uuid],
-            (oldData: FormattedMessageType[] | undefined) => {
-              const newMessage = createAIMessage(data.content)
-              return oldData ? [...oldData, newMessage] : [newMessage]
-            }
-          )
-          queryClient.invalidateQueries({ queryKey: ['chats'] })
+          appendAIMessageToCache(data.chat_uuid, data.content)
         }
         return
       }
@@ -358,14 +362,7 @@ export function ChatPage() {
                   'socket',
                   `Streaming completado para chat ${streamingToken.chat_uuid}, pero usuario está en new chat. Solo actualizando cache.`
                 )
-                queryClient.setQueryData(
-                  ['chat-messages', streamingToken.chat_uuid],
-                  (oldData: FormattedMessageType[] | undefined) => {
-                    const newMessage = createAIMessage(streamingToken.full_message!)
-                    return oldData ? [...oldData, newMessage] : [newMessage]
-                  }
-                )
-                queryClient.invalidateQueries({ queryKey: ['chats'] })
+                appendAIMessageToCache(streamingToken.chat_uuid, streamingToken.full_message!)
               }
               return
             }
@@ -415,14 +412,14 @@ export function ChatPage() {
       socket.off('stream.end')
       socket.off('stream.error')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     chat_uuid,
     updateStreamingMessage,
     clearStreamingMessage,
     logger,
     handleNewChatNavigation,
-    handleCompleteMessage
+    handleCompleteMessage,
+    appendAIMessageToCache
   ])
 
   // Efecto para scroll automático

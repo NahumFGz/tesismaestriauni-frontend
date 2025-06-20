@@ -12,10 +12,6 @@ import type { GeneratedResponse, StreamingTokenResponse } from '../../../service
 import { createLogger } from '../utils/logger'
 import { createAIMessage, createUserMessage } from '../utils/messageHelpers'
 
-// Utilidad genérica para ordenar elementos con campo updated_at en orden descendente
-export const sortByDateDesc = <T extends { updated_at: string }>(a: T, b: T) =>
-  new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-
 interface ChatContextType {
   isStreaming: boolean
   setIsStreaming: (value: boolean) => void

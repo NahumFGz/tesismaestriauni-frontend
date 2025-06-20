@@ -9,6 +9,7 @@ import { Loading } from '../../../components/ui/Loading'
 import { getChats, type ChatType } from '../../../services/chat'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { sortByDateDesc } from '../utils'
 
 export default function SidebarBody() {
   const navigate = useNavigate()
@@ -39,16 +40,11 @@ export default function SidebarBody() {
 
     setAccumulatedChats((prev) => {
       // Si es primera página, reemplazar; si es paginación continuar acumulando
-      if (pagination.page === 1)
-        return [...chats].sort(
-          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        )
+      if (pagination.page === 1) return [...chats].sort(sortByDateDesc)
 
       const existingIds = new Set(prev.map((c) => c.chat_uuid))
       const merged = [...prev, ...chats.filter((c) => !existingIds.has(c.chat_uuid))]
-      return merged.sort(
-        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      )
+      return merged.sort(sortByDateDesc)
     })
     setLoadingMore(false)
   }, [chats, isLoading, pagination.page])

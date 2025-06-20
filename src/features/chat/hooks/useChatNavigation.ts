@@ -55,6 +55,10 @@ export const useChatNavigation = ({
       }
 
       onLoadMessages(chatUuid)
+    } else if (!chatUuid && previousChatUuidRef.current) {
+      // Si no hay chatUuid pero antes había uno, significa que navegamos a New Chat
+      logger('chat', 'Navegando desde conversación específica a New Chat')
+      previousChatUuidRef.current = null
     }
   }, [chatUuid, onLoadMessages, onClearStreaming, onStopSending, navigatingRef, logger])
 }

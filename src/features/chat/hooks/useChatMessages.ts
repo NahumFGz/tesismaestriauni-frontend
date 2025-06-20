@@ -10,7 +10,6 @@ export const useChatMessages = () => {
   const [streamingMessage, setStreamingMessage] = useState<string>('')
   const [isChangingChat, setIsChangingChat] = useState(false)
   const [currentChatUuid, setCurrentChatUuid] = useState<string>('')
-  const [messagesLoaded, setMessagesLoaded] = useState(false)
 
   const queryClient = useQueryClient()
   const logger = createLogger('useChatMessages')
@@ -25,23 +24,19 @@ export const useChatMessages = () => {
     [currentChatUuid, queryClient]
   )
 
-  // Query para cargar mensajes con React Query (solo para carga inicial)
+  // Query para cargar mensajes con React Query
   const { isLoading } = useQuery({
     queryKey: ['chat-messages', currentChatUuid],
     queryFn: async () => {
       const messages = await getMessagesByUuid(currentChatUuid)
       logger('messages', `Mensajes cargados desde servidor: ${messages.length}`)
 
-      // Solo actualizar si no hemos cargado mensajes para este chat
-      if (!messagesLoaded) {
-        setLocalMessages(messages)
-        setMessagesLoaded(true)
-      }
-
+      // Actualizar los mensajes locales
+      setLocalMessages(messages)
       setIsChangingChat(false)
       return messages
     },
-    enabled: !!currentChatUuid && !messagesLoaded,
+    enabled: !!currentChatUuid,
     retry: 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -52,12 +47,12 @@ export const useChatMessages = () => {
 
   const loadMessages = useCallback(
     async (uuid: string) => {
-      if (!uuid) return
+      if (!uuid || currentChatUuid === uuid) return
 
       logger('messages', `Iniciando carga para chat: ${uuid}`)
       setIsChangingChat(true)
-      setLocalMessages([])
-      setMessagesLoaded(false)
+
+      // Cambiar el UUID primero para disparar el query
       setCurrentChatUuid(uuid)
 
       // Intentar usar cache si está disponible
@@ -65,14 +60,16 @@ export const useChatMessages = () => {
         'chat-messages',
         uuid
       ])
-      if (cachedMessages) {
+      if (cachedMessages && cachedMessages.length > 0) {
         logger('messages', `Usando mensajes cacheados: ${cachedMessages.length}`)
         setLocalMessages(cachedMessages)
-        setMessagesLoaded(true)
         setIsChangingChat(false)
+      } else {
+        // Limpiar mensajes solo si no hay cache
+        setLocalMessages([])
       }
     },
-    [logger, queryClient]
+    [logger, queryClient, currentChatUuid]
   )
 
   const clearMessages = useCallback(() => {
@@ -80,7 +77,7 @@ export const useChatMessages = () => {
     setLocalMessages([])
     setStreamingMessage('')
     setCurrentChatUuid('')
-    setMessagesLoaded(false)
+    setIsChangingChat(false)
   }, [logger])
 
   const addMessage = useCallback(
@@ -133,7 +130,6 @@ export const useChatMessages = () => {
       } else {
         queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
       }
-      setMessagesLoaded(false) // Permitir recargar
     },
     [queryClient]
   )

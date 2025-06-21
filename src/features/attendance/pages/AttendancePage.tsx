@@ -17,6 +17,7 @@ import {
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { getAttendance, type AttendanceType } from '../../../services/attendance'
+import { formatDateToISO } from '../../../utils/format'
 
 export function AttendancePage() {
   const [searchParams] = useSearchParams()
@@ -186,7 +187,7 @@ export function AttendancePage() {
           >
             {(attendanceData?.data || []).map((item: AttendanceType) => (
               <TableRow key={item.id}>
-                <TableCell>{new Date(item.fecha).toISOString().split('T')[0]}</TableCell>
+                <TableCell>{formatDateToISO(item.fecha)}</TableCell>
                 <TableCell>{item.legislatura}</TableCell>
                 <TableCell>{item.periodo_anual_inicio}</TableCell>
                 <TableCell>

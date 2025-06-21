@@ -17,6 +17,7 @@ import {
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { getVoting, type VotingType } from '../../../services/voting'
+import { formatDateToISO, truncateText } from '../../../utils/format'
 
 export function VotingPage() {
   const [searchParams] = useSearchParams()
@@ -113,17 +114,8 @@ export function VotingPage() {
     lastMetaRef.current = { totalPages: votingData.meta.totalPages }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toISOString().split('T')[0] // Format as yyyy-mm-dd
-  }
-
   const openImage = (url: string) => {
     window.open(url, '_blank')
-  }
-
-  const truncateText = (text: string, maxLength: number = 80) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
   }
 
   return (
@@ -206,7 +198,7 @@ export function VotingPage() {
           >
             {(votingData?.data || []).map((item: VotingType) => (
               <TableRow key={item.id}>
-                <TableCell>{formatDate(item.fecha)}</TableCell>
+                <TableCell>{formatDateToISO(item.fecha)}</TableCell>
                 <TableCell>
                   <div className='text-small' title={item.asunto}>
                     {truncateText(item.asunto)}

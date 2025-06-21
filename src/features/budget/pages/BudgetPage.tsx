@@ -17,6 +17,7 @@ import {
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { getBudget, type BudgetType } from '../../../services/budget'
+import { formatNumber, formatDateToISO, truncateText } from '../../../utils/format'
 
 export function BudgetPage() {
   const [searchParams] = useSearchParams()
@@ -113,18 +114,6 @@ export function BudgetPage() {
     lastMetaRef.current = { totalPages: budgetData.meta.totalPages }
   }
 
-  const formatNumber = (amount: string) => {
-    const num = parseFloat(amount)
-    return new Intl.NumberFormat('es-PE', {
-      minimumFractionDigits: 2
-    }).format(num)
-  }
-
-  const truncateText = (text: string, maxLength: number = 50) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
-  }
-
   return (
     <div className='h-full flex flex-col p-6'>
       {/* Search Bar and Page Size Selector */}
@@ -180,6 +169,9 @@ export function BudgetPage() {
               RUC
             </TableColumn>
             <TableColumn key='nombre'>NOMBRE DE ENTIDAD</TableColumn>
+            <TableColumn key='fecha_inicio_actividades' width={160}>
+              INICIO DE ACTIVIDADES
+            </TableColumn>
             <TableColumn key='monto_total' align='end' width={200}>
               MONTO TOTAL (S/)
             </TableColumn>
@@ -206,6 +198,7 @@ export function BudgetPage() {
                 <TableCell>
                   <div title={item.nombre}>{truncateText(item.nombre)}</div>
                 </TableCell>
+                <TableCell>{formatDateToISO(item.fecha_inicio_actividades)}</TableCell>
                 <TableCell>
                   <div className='text-right'>{formatNumber(item.monto_total)}</div>
                 </TableCell>

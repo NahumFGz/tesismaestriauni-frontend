@@ -6,6 +6,7 @@ export const BudgetSchema = z.object({
   id: z.string(),
   ruc: z.string(),
   nombre: z.string(),
+  fecha_inicio_actividades: z.string().nullable(),
   monto_total: z.string(),
   createdAt: z.string(),
   updatedAt: z.string()

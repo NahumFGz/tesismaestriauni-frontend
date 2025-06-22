@@ -1,5 +1,5 @@
 'use client'
-import type { MessagingChatMessageProps } from './data'
+import type { MessagingChatMessageProps } from '../constants/data'
 
 import React, { useCallback } from 'react'
 import { Avatar, Image } from '@heroui/react'

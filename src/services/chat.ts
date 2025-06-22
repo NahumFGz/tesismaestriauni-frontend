@@ -48,7 +48,7 @@ export const getChats = async ({
 
     const user_id = useAuthStore.getState().profile!.id
 
-    const response = await api.get<ChatType[]>(`/messages/${user_id}`, {
+    const response = await api.get<ChatType[]>(`/messages/chats/${user_id}`, {
       params: { page, take }
     })
 

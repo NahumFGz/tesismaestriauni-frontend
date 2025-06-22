@@ -12,8 +12,8 @@ export function ChatLayout() {
     switch (location.pathname) {
       case '/attendance':
         return { title: 'Attendance System', subTitle: 'Management', showHeader: false }
-      case '/budget':
-        return { title: 'Budget System', subTitle: 'Management', showHeader: false }
+      case '/procurement':
+        return { title: 'Procurement System', subTitle: 'Management', showHeader: false }
       case '/voting':
         return { title: 'Voting System', subTitle: 'Management', showHeader: false }
       default:

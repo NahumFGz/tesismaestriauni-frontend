@@ -16,10 +16,10 @@ import {
   Button
 } from '@heroui/react'
 import { Icon } from '@iconify/react'
-import { getBudget, type BudgetType } from '../../../services/budget'
+import { getProcurement, type ProcurementType } from '../../../services/procurement'
 import { formatNumber, formatDateToISO, truncateText } from '../../../utils/format'
 
-export function BudgetPage() {
+export function ProcurementPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
@@ -54,7 +54,7 @@ export function BudgetPage() {
       params.set('take', newTake.toString())
     }
 
-    navigate(`/budget${params.toString() ? `?${params.toString()}` : ''}`, { replace: true })
+    navigate(`/procurement${params.toString() ? `?${params.toString()}` : ''}`, { replace: true })
   }
 
   // Manejar cambios en el input de búsqueda
@@ -94,13 +94,13 @@ export function BudgetPage() {
   }, [])
 
   const {
-    data: budgetData,
+    data: procurementData,
     isLoading,
     isError,
     error
   } = useQuery({
-    queryKey: ['budget', currentPage, currentTake, currentSearch],
-    queryFn: () => getBudget({ page: currentPage, take: currentTake, search: currentSearch }),
+    queryKey: ['procurement', currentPage, currentTake, currentSearch],
+    queryFn: () => getProcurement({ page: currentPage, take: currentTake, search: currentSearch }),
     retry: 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -110,8 +110,8 @@ export function BudgetPage() {
   })
 
   // Actualizar los metadatos cuando tengamos datos
-  if (budgetData?.meta) {
-    lastMetaRef.current = { totalPages: budgetData.meta.totalPages }
+  if (procurementData?.meta) {
+    lastMetaRef.current = { totalPages: procurementData.meta.totalPages }
   }
 
   return (
@@ -157,7 +157,7 @@ export function BudgetPage() {
         style={{ height: 'calc(100vh - 240px)' }}
       >
         <Table
-          aria-label='Tabla de presupuesto'
+          aria-label='Tabla de procurement'
           removeWrapper
           isHeaderSticky
           classNames={{
@@ -188,11 +188,11 @@ export function BudgetPage() {
                   Error: {error?.message || 'Error al cargar datos'}
                 </div>
               ) : (
-                'No se encontraron datos de presupuesto'
+                'No se encontraron datos de procurement'
               )
             }
           >
-            {(budgetData?.data || []).map((item: BudgetType) => (
+            {(procurementData?.data || []).map((item: ProcurementType) => (
               <TableRow key={item.id}>
                 <TableCell>{item.ruc}</TableCell>
                 <TableCell>

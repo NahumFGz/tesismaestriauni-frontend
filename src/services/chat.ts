@@ -48,7 +48,7 @@ export const getChats = async ({
 
     const user_id = useAuthStore.getState().profile!.id
 
-    const response = await api.get<ChatType[]>(`/messages/chats/${user_id}`, {
+    const response = await api.get<ChatType[]>(`/chats/${user_id}`, {
       params: { page, take }
     })
 
@@ -68,7 +68,7 @@ export const getMessagesByUuid = async (chat_uuid: string): Promise<FormattedMes
   try {
     const user_id = useAuthStore.getState().profile!.id
 
-    const response = await api.get<MessageType[]>(`/messages/by-chat/${user_id}`, {
+    const response = await api.get<MessageType[]>(`/chats/messages/${user_id}`, {
       params: { chat_uuid }
     })
 

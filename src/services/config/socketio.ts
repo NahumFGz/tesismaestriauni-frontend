@@ -59,7 +59,7 @@ const logSocketEvent = (event: string, data?: unknown) => {
 export const getSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
   if (!socket) {
     logSocketEvent('Creando nueva conexión de socket')
-    socket = io(`${import.meta.env.VITE_BASE_API_URL}/messages`)
+    socket = io(`${import.meta.env.VITE_BASE_API_URL}/chats`)
 
     // Registrar eventos de conexión
     socket.on('connect', () => {

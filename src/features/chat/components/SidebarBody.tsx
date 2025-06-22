@@ -81,10 +81,10 @@ export default function SidebarBody() {
             title='Tools'
           >
             <ListboxItem
-              key='budget'
-              onPress={() => navigate('/budget')}
+              key='procurement'
+              onPress={() => navigate('/procurement')}
               className={`h-[36px] px-[12px] py-[6px] ${
-                location.pathname === '/budget'
+                location.pathname === '/procurement'
                   ? 'bg-content3 text-content1-foreground'
                   : 'text-default-500'
               }`}
@@ -92,7 +92,7 @@ export default function SidebarBody() {
                 <Icon className='text-default-400' icon='solar:wallet-money-linear' width={20} />
               }
             >
-              Budget
+              Procurement
             </ListboxItem>
 
             <ListboxItem

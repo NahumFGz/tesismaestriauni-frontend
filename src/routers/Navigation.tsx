@@ -4,7 +4,7 @@ import { LoginPage } from '../features/auth/pages/LoginPage'
 import { ChatLayout } from '../features/chat/layouts/ChatLayout'
 import { ChatPage } from '../features/chat/pages/ChatPage'
 import { AttendancePage } from '../features/attendance/pages/AttendancePage'
-import { BudgetPage } from '../features/budget/pages/BudgetPage'
+import { ProcurementPage } from '../features/procurement/pages/ProcurementPage'
 import { VotingPage } from '../features/voting/pages/VotingPage'
 import { ProtectedRoutes } from './ProtectedRoutes'
 import { PublicRoutes } from './PublicRoutes'
@@ -27,7 +27,7 @@ export function Navigation() {
           <Route element={<ChatLayout />}>
             <Route path='chat/conversation/:chat_uuid?' element={<ChatPage />} />
             <Route path='attendance' element={<AttendancePage />} />
-            <Route path='budget' element={<BudgetPage />} />
+            <Route path='procurement' element={<ProcurementPage />} />
             <Route path='voting' element={<VotingPage />} />
           </Route>
         </Route>

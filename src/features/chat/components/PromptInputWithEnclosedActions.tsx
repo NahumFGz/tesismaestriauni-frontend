@@ -4,7 +4,7 @@ import { Button, Tooltip } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { cn } from '@heroui/react'
 
-import PromptInput from './prompt-input'
+import PromptInput from './PromptInput'
 
 export interface PromptInputWithEnclosedActionsProps extends TextAreaProps {
   classNames?: Record<'button' | 'buttonIcon' | 'innerWrapper' | 'input', string>

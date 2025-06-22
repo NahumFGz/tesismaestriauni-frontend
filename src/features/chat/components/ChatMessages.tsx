@@ -1,6 +1,6 @@
 import { ScrollShadow, Spinner } from '@heroui/react'
-import MessagingChatMessage from './messaging-chat-message'
-import { NewChat } from './new-chat'
+import MessagingChatMessage from './MessagingChatMessage'
+import { NewChat } from './NewChat'
 import { Loading } from '../../../components/ui/Loading'
 import type { FormattedMessageType } from '../../../services/chat'
 

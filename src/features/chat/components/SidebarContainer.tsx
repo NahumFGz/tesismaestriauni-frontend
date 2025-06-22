@@ -1,10 +1,10 @@
 import { Button, Spacer, useDisclosure, cn } from '@heroui/react'
 import { Icon } from '@iconify/react'
 
-import SidebarDrawer from './sidebar-drawer'
-import SidebarFooter from './sidebar-footer'
-import SidebarBody from './sidebar-body'
-import SidebarHeader from './sidebar-header'
+import SidebarDrawer from './SidebarDrawer'
+import SidebarFooter from './SidebarFooter'
+import SidebarBody from './SidebarBody'
+import SidebarHeader from './SidebarHeader'
 
 /**
  * 💡 TIP: You can use the usePathname hook from Next.js App Router to get the current pathname

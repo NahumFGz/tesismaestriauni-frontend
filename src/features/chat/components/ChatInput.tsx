@@ -1,4 +1,4 @@
-import { PromptInputWithEnclosedActions } from './prompt-input-with-enclosed-actions'
+import { PromptInputWithEnclosedActions } from './PromptInputWithEnclosedActions'
 
 interface ChatInputProps {
   prompt: string

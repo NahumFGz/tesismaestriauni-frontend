@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
-import { SidebarContainer } from '../components/sidebar'
-import { SidebarContainerHeader } from '../components/sidebar-container-header'
+import { SidebarContainer } from '../components/SidebarContainer'
+import { SidebarContainerHeader } from '../components/SidebarContainerHeader'
 
 export function ChatLayout() {
   const location = useLocation()

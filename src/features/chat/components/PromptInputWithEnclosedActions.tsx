@@ -1,3 +1,4 @@
+import type React from 'react'
 import type { TextAreaProps } from '@heroui/react'
 
 import { Button, Tooltip } from '@heroui/react'
@@ -23,6 +24,14 @@ export function PromptInputWithEnclosedActions({
   disabled = false,
   ...props
 }: PromptInputWithEnclosedActionsProps) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (prompt && !disabled) {
+        onSendPrompt()
+      }
+    }
+  }
   return (
     <div className='flex w-full items-start gap-2'>
       <PromptInput
@@ -82,6 +91,7 @@ export function PromptInputWithEnclosedActions({
         }
         value={prompt}
         onValueChange={onPromptChange}
+        onKeyDown={handleKeyDown}
       />
     </div>
   )

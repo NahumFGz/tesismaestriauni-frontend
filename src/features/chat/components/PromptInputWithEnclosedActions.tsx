@@ -34,18 +34,6 @@ export function PromptInputWithEnclosedActions({
             props.classNames?.input
           )
         }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            if (!disabled && prompt.trim()) {
-              onSendPrompt()
-            }
-          }
-
-          if (props.onKeyDown) {
-            props.onKeyDown(e)
-          }
-        }}
         endContent={
           <div className='flex gap-2'>
             {!prompt && (

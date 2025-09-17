@@ -35,7 +35,7 @@ const MessagingChatMessage = React.forwardRef<HTMLDivElement, MessagingChatMessa
           </div>
           <div ref={messageRef} className='mt-2 text-small text-default-900'>
             {isRTL ? (
-              <div className='prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:p-2 prose-pre:rounded-md prose-pre:text-xs prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1'>
+              <div className='prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-100 prose-pre:text-gray-800 dark:prose-pre:bg-gray-800 dark:prose-pre:text-gray-200 prose-code:text-gray-800 dark:prose-code:text-gray-200 prose-pre:p-2 prose-pre:rounded-md prose-pre:text-xs prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1'>
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeRaw]}
